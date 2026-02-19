@@ -1,0 +1,114 @@
+# Project Overview
+You are coding a diploma project called "DamuBala" - An AI-Based Application for Developing Cognitive, Emotional, and Social Skills in Children (ages 4–10).
+
+The system consists of:
+- Frontend: Next.js (App Router) + TypeScript + TailwindCSS + shadcn/ui in /web
+- Backend: Node.js + Express + MongoDB + Mongoose in /api
+
+Main roles:
+- Parent (registration, login, child profile, dashboard, Telegram updates)
+- Child (mini-games, emotion recognition, gamification)
+
+Core functional modules (Week 3–11):
+- Authentication & Parent/Child profiles
+- Mini-games for cognitive development
+- Emotion recognition (later integration with CV API)
+- AI recommendation engine (initially basic rules / scoring)
+- Parent analytics dashboard
+- Gamification (points, badges, levels)
+- Telegram bot (later, separate module)
+
+# General Coding Rules
+- Use TypeScript everywhere (frontend & backend).
+- Prefer clean, minimalistic, readable code.
+- Use async/await for all async operations.
+- Handle errors properly (no empty catch).
+- Keep business logic out of route handlers (use controllers/services).
+- Use zod (or similar) for validating request bodies in backend.
+
+# Frontend (web/)
+- Framework: Next.js App Router with TypeScript.
+- Styling: TailwindCSS + shadcn/ui components.
+- Structure (recommended):
+  - src/app/* for routes
+  - src/components/* for reusable UI
+  - src/features/* for domain features:
+    - auth/
+    - parent-dashboard/
+    - child-profile/
+    - games/
+    - analytics/
+  - src/lib/* for helpers (api client, auth, constants)
+  - src/types/* for shared TS types
+
+- Use:
+  - React Server Components for pages when possible.
+  - Client Components only where needed (forms, game logic, charts).
+- For API calls, use fetch to NEXT_PUBLIC_API_URL + "/api/...".
+- All forms should use controlled components and good UX (loading state, error messages).
+
+UI/UX principles:
+- Minimalistic, kid-friendly, large buttons.
+- Separate clear flows:
+  - Parent mode
+  - Child mode
+- Parent dashboard: cards with charts and stats (progress, time spent, emotions summary).
+- Child view: game cards, progress bar, avatar, and rewards.
+
+# Backend (api/)
+- Use Express, TypeScript, and Mongoose.
+- Structure:
+  - src/index.ts (server bootstrap)
+  - src/config/db.ts (Mongo connection)
+  - src/models/* (User, Child, GameSession, EmotionRecord, Achievement, etc.)
+  - src/routes/* (authRoutes, parentRoutes, childRoutes, gameRoutes, analyticsRoutes)
+  - src/controllers/* (separate logic per route group)
+  - src/middleware/* (auth, error handling)
+  - src/utils/* (helpers, tokens, scoring rules)
+
+- Authentication:
+  - Use JWT.
+  - Store hashed passwords with bcrypt.
+  - Provide middleware `requireAuth` that sets req.user.
+
+- Models (minimal first versions):
+  - User (parent):
+    - email, passwordHash, name, role = "parent"
+  - Child:
+    - parentId, name, age, avatar, language, createdAt
+  - GameSession:
+    - childId, gameKey, score, duration, difficulty, createdAt
+  - EmotionRecord:
+    - childId, emotion, intensity, timestamp, context (gameKey)
+
+- Implement endpoints in this order:
+  1. /auth/register, /auth/login
+  2. /children (create/list)
+  3. /games/sessions (save result)
+  4. /analytics/summary (aggregate by childId)
+
+# Data & AI Logic (Phase 1 - Simplified)
+- Emotion recognition: initially mock or accept emotion from frontend.
+- AI recommendation engine: start with rule-based logic:
+  - Based on average scores per game and emotion trends, return text suggestions for parents.
+- Later it can be replaced with more advanced AI, but API surface should remain stable.
+
+# Style & Quality
+- Use meaningful names (no "test1", "temp", etc.).
+- Add JSDoc / TS doc comments for non-trivial functions.
+- Avoid unnecessary abstractions at MVP stage.
+- Write small, composable React components.
+
+# What to Generate First
+When asked to generate code for this project, prefer to:
+1. Create or extend backend models, routes, and controllers according to this architecture.
+2. Create auth and layout pages in Next.js:
+   - /login, /register (parent)
+   - /parent/dashboard
+   - /child (child mode entry)
+3. Use shadcn/ui for forms, cards, and navigation layout.
+
+This project is for a university diploma, so:
+- Code should look clean and structured.
+- Architecture and file names should be consistent.
+- Avoid experimental libraries; keep to the declared stack only.

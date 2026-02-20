@@ -16,7 +16,7 @@ import type {
   Recommendation,
 } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://damubala-production.up.railway.app";
 
 class ApiClient {
   private token: string | null = null;

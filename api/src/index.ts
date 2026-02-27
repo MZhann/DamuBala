@@ -41,8 +41,8 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-// Explicitly handle preflight for all routes
-app.options("*", cors());
+// Explicitly handle preflight for all routes (Express 5 wildcard syntax)
+app.options("/{*path}", cors());
 
 app.use(express.json());
 

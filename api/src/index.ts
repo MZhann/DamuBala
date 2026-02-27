@@ -16,7 +16,7 @@ const allowedOrigins = [
   "http://localhost:3001",
   ...(process.env.CORS_ORIGIN || "")
     .split(",")
-    .map((o) => o.trim())
+    .map((o) => o.trim().replace(/\/+$/, "")) // strip trailing slashes
     .filter(Boolean),
 ];
 

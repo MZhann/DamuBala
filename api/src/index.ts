@@ -14,6 +14,7 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
+  "https://damu-bala.vercel.app",
   ...(process.env.CORS_ORIGIN || "")
     .split(",")
     .map((o) => o.trim().replace(/\/+$/, "")) // strip trailing slashes

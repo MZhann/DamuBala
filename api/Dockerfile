@@ -1,8 +1,10 @@
 FROM node:20-alpine AS base
 
-# --- Dependencies stage ---
+# --- Dependencies stage (production only) ---
 FROM base AS deps
 WORKDIR /app
+# Need python3/make/g++ for native modules like bcrypt
+RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
@@ -23,9 +25,10 @@ ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 # Copy compiled JavaScript
 COPY --from=build /app/dist ./dist
-# Copy package.json for metadata
+# Copy package.json (needed for "type": "module")
 COPY package.json ./
 
-EXPOSE 4000
+# Railway injects PORT dynamically — don't hardcode it
+EXPOSE ${PORT:-4000}
 
 CMD ["node", "dist/index.js"]

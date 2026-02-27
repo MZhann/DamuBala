@@ -10,16 +10,40 @@ dotenv.config();
 
 const app = express();
 
-// Parse allowed origins from env (comma-separated)
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000")
-  .split(",")
-  .map((origin) => origin.trim());
+// Allowed origins for CORS (supports comma-separated values in env)
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  ...(process.env.CORS_ORIGIN || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+];
 
-// Middleware
+// Deduplicate
+const uniqueOrigins = [...new Set(allowedOrigins)];
+
+console.log("🌐 Allowed CORS origins:", uniqueOrigins);
+
+// CORS middleware — must be BEFORE all routes
 app.use(cors({
-  origin: allowedOrigins,
+  origin(origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, health checks)
+    if (!origin) return callback(null, true);
+    if (uniqueOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    console.warn(`⛔ CORS blocked origin: ${origin}`);
+    return callback(new Error(`CORS not allowed for origin: ${origin}`));
+  },
   credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
+// Explicitly handle preflight for all routes
+app.options("*", cors());
+
 app.use(express.json());
 
 // Health check
@@ -48,7 +72,7 @@ async function start() {
     app.listen(PORT, HOST, () => {
       console.log(`🚀 DamuBala API running on http://${HOST}:${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
-      console.log(`🔗 CORS origins: ${allowedOrigins.join(", ")}`);
+      console.log(`🔗 CORS origins: ${uniqueOrigins.join(", ")}`);
       console.log(`📚 Routes: /api/auth, /api/children, /api/games, /api/analytics, /api/emotions`);
     });
   } catch (err) {

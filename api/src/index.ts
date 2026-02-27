@@ -66,18 +66,31 @@ const PORT = parseInt(process.env.PORT || "4000", 10);
 const HOST = "0.0.0.0";
 
 async function start() {
-  try {
-    await connectDB();
+  // Start HTTP server FIRST so Railway health checks pass
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 DamuBala API running on http://${HOST}:${PORT}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log(`🔗 CORS origins: ${uniqueOrigins.join(", ")}`);
+    console.log(`📚 Routes: /api/auth, /api/children, /api/games, /api/analytics, /api/emotions`);
+  });
 
-    app.listen(PORT, HOST, () => {
-      console.log(`🚀 DamuBala API running on http://${HOST}:${PORT}`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
-      console.log(`🔗 CORS origins: ${uniqueOrigins.join(", ")}`);
-      console.log(`📚 Routes: /api/auth, /api/children, /api/games, /api/analytics, /api/emotions`);
-    });
-  } catch (err) {
-    console.error("❌ Failed to start server:", err);
-    process.exit(1);
+  // Then connect to MongoDB (with retry)
+  const MAX_RETRIES = 5;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await connectDB();
+      break;
+    } catch (err) {
+      console.error(`❌ MongoDB connection attempt ${attempt}/${MAX_RETRIES} failed:`, err);
+      if (attempt === MAX_RETRIES) {
+        console.error("❌ All MongoDB connection attempts failed. Exiting.");
+        process.exit(1);
+      }
+      // Wait before retrying (exponential backoff: 2s, 4s, 8s, 16s, 32s)
+      const delay = Math.pow(2, attempt) * 1000;
+      console.log(`⏳ Retrying in ${delay / 1000}s...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
 }
 

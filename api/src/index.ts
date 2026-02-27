@@ -25,8 +25,8 @@ const uniqueOrigins = [...new Set(allowedOrigins)];
 
 console.log("🌐 Allowed CORS origins:", uniqueOrigins);
 
-// CORS middleware — must be BEFORE all routes
-app.use(cors({
+// Shared CORS config
+const corsOptions: cors.CorsOptions = {
   origin(origin, callback) {
     // Allow requests with no origin (mobile apps, Postman, health checks)
     if (!origin) return callback(null, true);
@@ -39,10 +39,13 @@ app.use(cors({
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-}));
+};
 
-// Explicitly handle preflight for all routes (Express 5 wildcard syntax)
-app.options("/{*path}", cors());
+// CORS middleware — must be BEFORE all routes
+app.use(cors(corsOptions));
+
+// Preflight handler with the SAME config (Express 5 wildcard syntax)
+app.options("/{*path}", cors(corsOptions));
 
 app.use(express.json());
 

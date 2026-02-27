@@ -10,43 +10,40 @@ dotenv.config();
 
 const app = express();
 
-// Allowed origins for CORS (supports comma-separated values in env)
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "https://damu-bala.vercel.app",
-  ...(process.env.CORS_ORIGIN || "")
-    .split(",")
-    .map((o) => o.trim().replace(/\/+$/, "")) // strip trailing slashes
-    .filter(Boolean),
-];
+// ===== CORS — dead simple, no functions, just allow these origins =====
+app.use((_req, res, next) => {
+  const origin = _req.headers.origin;
+  const allowed = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://damu-bala.vercel.app",
+  ];
 
-// Deduplicate
-const uniqueOrigins = [...new Set(allowedOrigins)];
+  // Add any extra origins from env
+  const extra = process.env.CORS_ORIGIN;
+  if (extra) {
+    extra.split(",").forEach((o) => {
+      const trimmed = o.trim().replace(/\/+$/, "");
+      if (trimmed) allowed.push(trimmed);
+    });
+  }
 
-console.log("🌐 Allowed CORS origins:", uniqueOrigins);
+  if (origin && allowed.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
 
-// Shared CORS config
-const corsOptions: cors.CorsOptions = {
-  origin(origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, health checks)
-    if (!origin) return callback(null, true);
-    if (uniqueOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    console.warn(`⛔ CORS blocked origin: ${origin}`);
-    return callback(new Error(`CORS not allowed for origin: ${origin}`));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
 
-// CORS middleware — must be BEFORE all routes
-app.use(cors(corsOptions));
+  // Handle preflight
+  if (_req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
 
-// Preflight handler with the SAME config (Express 5 wildcard syntax)
-app.options("/{*path}", cors(corsOptions));
+  next();
+});
 
 app.use(express.json());
 
@@ -74,7 +71,6 @@ async function start() {
   app.listen(PORT, HOST, () => {
     console.log(`🚀 DamuBala API running on http://${HOST}:${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
-    console.log(`🔗 CORS origins: ${uniqueOrigins.join(", ")}`);
     console.log(`📚 Routes: /api/auth, /api/children, /api/games, /api/analytics, /api/emotions`);
   });
 
@@ -90,7 +86,6 @@ async function start() {
         console.error("❌ All MongoDB connection attempts failed. Exiting.");
         process.exit(1);
       }
-      // Wait before retrying (exponential backoff: 2s, 4s, 8s, 16s, 32s)
       const delay = Math.pow(2, attempt) * 1000;
       console.log(`⏳ Retrying in ${delay / 1000}s...`);
       await new Promise((resolve) => setTimeout(resolve, delay));

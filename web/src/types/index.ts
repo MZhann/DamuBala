@@ -65,7 +65,9 @@ export type GameKey =
   | "math-adventure"
   | "word-builder"
   | "emotion-cards"
-  | "puzzle-solve";
+  | "puzzle-solve"
+  | "fruit-ninja-nose"
+  | "pose-match";
 
 export type Difficulty = "easy" | "medium" | "hard";
 

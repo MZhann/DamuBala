@@ -7,7 +7,9 @@ export type GameKey =
   | "math-adventure"    // Basic math problems
   | "word-builder"      // Word/letter games
   | "emotion-cards"     // Emotion recognition game
-  | "puzzle-solve";     // Puzzle solving
+  | "puzzle-solve"      // Puzzle solving
+  | "fruit-ninja-nose"  // CV: Nose fruit slicing game
+  | "pose-match";       // CV: Body pose matching game
 
 export type Difficulty = "easy" | "medium" | "hard";
 
@@ -36,7 +38,7 @@ const gameSessionSchema = new Schema<IGameSession>(
     },
     gameKey: {
       type: String,
-      enum: ["memory-match", "pattern-sequence", "math-adventure", "word-builder", "emotion-cards", "puzzle-solve"],
+      enum: ["memory-match", "pattern-sequence", "math-adventure", "word-builder", "emotion-cards", "puzzle-solve", "fruit-ninja-nose", "pose-match"],
       required: true,
     },
     score: {

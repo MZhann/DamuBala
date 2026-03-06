@@ -34,7 +34,7 @@ export const updateChildSchema = z.object({
 // Game session validation schemas
 export const saveGameSessionSchema = z.object({
   childId: z.string().min(1, "Child ID is required"),
-  gameKey: z.enum(["memory-match", "pattern-sequence", "math-adventure", "word-builder", "emotion-cards", "puzzle-solve"]),
+  gameKey: z.enum(["memory-match", "pattern-sequence", "math-adventure", "word-builder", "emotion-cards", "puzzle-solve", "fruit-ninja-nose", "pose-match"]),
   score: z.number().int().min(0),
   maxScore: z.number().int().min(0),
   duration: z.number().int().min(0),

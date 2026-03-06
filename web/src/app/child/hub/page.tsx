@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 const games = [
   { id: "memory-match", icon: "🧠", name: "Память", description: "Найди пары", color: "from-pink-500/20 to-purple-500/20" },
   { id: "math-adventure", icon: "🔢", name: "Математика", description: "Реши примеры", color: "from-blue-500/20 to-cyan-500/20" },
+  { id: "fruit-ninja-nose", icon: "🍎", name: "Фруктовый Ниндзя", description: "Режь носом! 📸", color: "from-red-500/20 to-orange-500/20" },
+  { id: "pose-match", icon: "🧍", name: "Повтори Позу", description: "Покажи позу! 📸", color: "from-teal-500/20 to-emerald-500/20" },
   { id: "emotion-cards", icon: "😊", name: "Эмоции", description: "Угадай эмоцию", color: "from-yellow-500/20 to-orange-500/20" },
   { id: "word-builder", icon: "📝", name: "Слова", description: "Собери слово", color: "from-green-500/20 to-teal-500/20" },
   { id: "pattern-sequence", icon: "🔷", name: "Узоры", description: "Продолжи ряд", color: "from-indigo-500/20 to-violet-500/20" },

@@ -10,6 +10,8 @@ import type { Child, Difficulty } from "@/types";
 // Import game components
 import MemoryMatchGame from "@/components/games/MemoryMatchGame";
 import MathAdventureGame from "@/components/games/MathAdventureGame";
+import FruitNinjaNoseGame from "@/components/games/FruitNinjaNoseGame";
+import PoseMatchGame from "@/components/games/PoseMatchGame";
 
 export default function GamePage({ params }: { params: Promise<{ gameKey: string }> }) {
   const { gameKey } = use(params);
@@ -65,7 +67,7 @@ export default function GamePage({ params }: { params: Promise<{ gameKey: string
       try {
         const response = await api.saveGameSession({
           childId: child.id,
-          gameKey: gameKey as "memory-match" | "math-adventure" | "pattern-sequence" | "word-builder" | "emotion-cards" | "puzzle-solve",
+          gameKey: gameKey as "memory-match" | "math-adventure" | "pattern-sequence" | "word-builder" | "emotion-cards" | "puzzle-solve" | "fruit-ninja-nose" | "pose-match",
           score: result.score,
           maxScore: result.maxScore,
           duration: result.duration,
@@ -200,7 +202,21 @@ export default function GamePage({ params }: { params: Promise<{ gameKey: string
             onExit={() => setGameStarted(false)}
           />
         )}
-        {!["memory-match", "math-adventure"].includes(gameKey) && (
+        {gameKey === "fruit-ninja-nose" && (
+          <FruitNinjaNoseGame
+            difficulty={difficulty}
+            onComplete={handleGameComplete}
+            onExit={() => setGameStarted(false)}
+          />
+        )}
+        {gameKey === "pose-match" && (
+          <PoseMatchGame
+            difficulty={difficulty}
+            onComplete={handleGameComplete}
+            onExit={() => setGameStarted(false)}
+          />
+        )}
+        {!["memory-match", "math-adventure", "fruit-ninja-nose", "pose-match"].includes(gameKey) && (
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="bg-white rounded-3xl p-8 shadow-lg max-w-md text-center">
               <div className="text-6xl mb-4">🚧</div>
@@ -282,6 +298,8 @@ function getGameInfo(gameKey: string) {
     "memory-match": { name: "Память", emoji: "🧠", description: "Найди одинаковые пары карточек", gradient: "from-[#FF8FAB] to-[#FF6B8A]" },
     "math-adventure": { name: "Математика", emoji: "🔢", description: "Реши примеры на время", gradient: "from-[#5B9BD5] to-[#4A8BC5]" },
     "pattern-sequence": { name: "Узоры", emoji: "🔷", description: "Продолжи последовательность", gradient: "from-[#4ECDC4] to-[#3DBDB5]" },
+    "fruit-ninja-nose": { name: "Фруктовый Ниндзя", emoji: "🍎", description: "Разрезай фрукты носом через камеру!", gradient: "from-[#FF4444] to-[#FF8800]" },
+    "pose-match": { name: "Повтори Позу", emoji: "🧍", description: "Покажи позу камере!", gradient: "from-[#00BFA5] to-[#4ECDC4]" },
     "emotion-cards": { name: "Эмоции", emoji: "😊", description: "Угадай эмоцию по картинке", gradient: "from-[#F5A623] to-[#E09515]" },
     "word-builder": { name: "Слова", emoji: "📝", description: "Собери слово из букв", gradient: "from-[#A78BFA] to-[#9575E5]" },
     "puzzle-solve": { name: "Головоломки", emoji: "🧩", description: "Собери картинку", gradient: "from-[#FF8FAB] to-[#A78BFA]" },

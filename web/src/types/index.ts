@@ -196,6 +196,49 @@ export interface Recommendation {
   actionableSteps?: string[];
 }
 
+// AI Friend types
+export type AIFriendPersonality = "friendly" | "playful" | "supportive" | "wise" | "funny";
+export type AIFriendAgeLevel = "same" | "older" | "peer";
+
+export interface AIFriendSettings {
+  id: string;
+  childId: string;
+  enabled: boolean;
+  name: string;
+  personality: AIFriendPersonality;
+  ageLevel: AIFriendAgeLevel;
+  topics: string[];
+  restrictions: string[];
+  customInstructions?: string;
+}
+
+export interface AIFriendMessage {
+  id: string;
+  role: "child" | "ai";
+  content: string;
+  timestamp: string;
+}
+
+export interface UpdateAIFriendSettingsInput {
+  enabled?: boolean;
+  name?: string;
+  personality?: AIFriendPersonality;
+  ageLevel?: AIFriendAgeLevel;
+  topics?: string[];
+  restrictions?: string[];
+  customInstructions?: string;
+}
+
+export interface SendAIFriendMessageInput {
+  message: string;
+}
+
+export interface SendAIFriendMessageResponse {
+  message: string;
+  response: string;
+  timestamp: string;
+}
+
 // API Response types
 export interface ApiError {
   error: string;

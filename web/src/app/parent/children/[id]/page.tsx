@@ -76,6 +76,9 @@ export default function ChildDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
         <div className="flex gap-2">
+          <Link href={`/parent/children/${id}/ai-friend`}>
+            <Button variant="outline" className="rounded-xl">🤖 AI-Друг</Button>
+          </Link>
           <Link href={`/parent/children/${id}/edit`}>
             <Button variant="outline" className="rounded-xl">✏️ Редактировать</Button>
           </Link>

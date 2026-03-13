@@ -14,6 +14,11 @@ import type {
   EmotionRecord,
   AnalyticsSummary,
   Recommendation,
+  AIFriendSettings,
+  AIFriendMessage,
+  UpdateAIFriendSettingsInput,
+  SendAIFriendMessageInput,
+  SendAIFriendMessageResponse,
 } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://damubala-production.up.railway.app";
@@ -193,6 +198,48 @@ class ApiClient {
   async getRecommendations(childId: string): Promise<{ recommendations: Recommendation[] }> {
     return this.request<{ recommendations: Recommendation[] }>(
       `/analytics/recommendations/${childId}`
+    );
+  }
+
+  // AI Friend endpoints
+  async getAIFriendSettings(childId: string): Promise<{ settings: AIFriendSettings }> {
+    return this.request<{ settings: AIFriendSettings }>(`/ai-friend/settings/${childId}`);
+  }
+
+  async updateAIFriendSettings(
+    childId: string,
+    input: UpdateAIFriendSettingsInput
+  ): Promise<{ message: string; settings: AIFriendSettings }> {
+    return this.request<{ message: string; settings: AIFriendSettings }>(
+      `/ai-friend/settings/${childId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }
+    );
+  }
+
+  async sendAIFriendMessage(
+    childId: string,
+    input: SendAIFriendMessageInput
+  ): Promise<SendAIFriendMessageResponse> {
+    return this.request<SendAIFriendMessageResponse>(`/ai-friend/chat/${childId}`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async getAIFriendChatHistory(
+    childId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<{ messages: AIFriendMessage[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set("limit", options.limit.toString());
+    if (options?.offset) params.set("offset", options.offset.toString());
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return this.request<{ messages: AIFriendMessage[]; total: number }>(
+      `/ai-friend/chat/${childId}/history${query}`
     );
   }
 }

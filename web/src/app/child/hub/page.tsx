@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useChild } from "@/lib/child-context";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import type { AIFriendSettings } from "@/types";
 
 const games = [
   { id: "memory-match", icon: "🧠", name: "Память", description: "Найди пары", color: "from-pink-500/20 to-purple-500/20" },
@@ -23,12 +25,29 @@ const games = [
 export default function ChildHubPage() {
   const router = useRouter();
   const { currentChild, clearChild, isHydrated } = useChild();
+  const [aiFriendEnabled, setAiFriendEnabled] = useState(false);
 
   useEffect(() => {
     if (isHydrated && !currentChild) {
       router.push("/child");
     }
   }, [currentChild, isHydrated, router]);
+
+  useEffect(() => {
+    if (currentChild) {
+      loadAIFriendStatus();
+    }
+  }, [currentChild]);
+
+  const loadAIFriendStatus = async () => {
+    if (!currentChild) return;
+    try {
+      const { settings } = await api.getAIFriendSettings(currentChild.id);
+      setAiFriendEnabled(settings.enabled);
+    } catch {
+      // Ignore errors
+    }
+  };
 
   if (!isHydrated) {
     return (
@@ -92,6 +111,21 @@ export default function ChildHubPage() {
             <Progress value={levelProgress} className="h-3" />
           </CardContent>
         </Card>
+
+        {/* AI Friend Card */}
+        {aiFriendEnabled && (
+          <div className="mb-8">
+            <Link href="/child/ai-friend">
+              <Card className="rounded-2xl card-hover cursor-pointer overflow-hidden border-2 border-primary/30 hover:border-primary transition-all bg-gradient-to-br from-primary/10 to-accent/10">
+                <CardContent className="p-6 text-center">
+                  <div className="text-5xl mb-3 animate-float">🤖</div>
+                  <h3 className="font-display font-bold text-lg">Мой AI-Друг</h3>
+                  <p className="text-sm text-muted-foreground">Поговори со мной!</p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        )}
 
         {/* Games Grid */}
         <div className="mb-8">

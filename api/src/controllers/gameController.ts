@@ -4,6 +4,7 @@ import { GameSession, Child, Achievement, ACHIEVEMENT_DEFINITIONS } from "../mod
 import { saveGameSessionSchema } from "../utils/validation.js";
 import { ZodError } from "zod";
 import type { AchievementKey } from "../models/Achievement.js";
+import { generatePostGameRecommendation } from "../services/aiRecommendationService.js";
 
 // Points awarded per score percentage
 const POINTS_MULTIPLIER = {
@@ -152,6 +153,29 @@ export async function saveGameSession(req: Request, res: Response): Promise<void
     // Check other achievements
     const newAchievements = await checkAchievements(data.childId);
 
+    // Generate post-game recommendation (non-blocking, async)
+    let postGameRecommendation = null;
+    try {
+      const accuracy = data.totalQuestions > 0 ? data.correctAnswers / data.totalQuestions : 0;
+      postGameRecommendation = await generatePostGameRecommendation(
+        {
+          name: child.name,
+          age: child.age,
+          level: newLevel,
+          totalPoints: newTotalPoints,
+          language: child.language || "ru",
+        },
+        data.gameKey,
+        data.score,
+        data.maxScore,
+        accuracy,
+        data.difficulty || "easy",
+      );
+    } catch (error) {
+      // Don't fail the request if recommendation generation fails
+      console.error("Post-game recommendation generation error:", error);
+    }
+
     res.status(201).json({
       message: "Game session saved",
       session: {
@@ -167,6 +191,7 @@ export async function saveGameSession(req: Request, res: Response): Promise<void
       newLevel,
       leveledUp: newLevel > previousLevel,
       newAchievements,
+      recommendation: postGameRecommendation, // Include AI recommendation
     });
   } catch (error) {
     if (error instanceof ZodError) {

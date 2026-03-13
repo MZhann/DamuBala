@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { GameSession, EmotionRecord, Child, Achievement } from "../models/index.js";
 import type { GameKey } from "../models/GameSession.js";
 import type { EmotionType } from "../models/EmotionRecord.js";
+import { generateRecommendations } from "../services/aiRecommendationService.js";
 
 interface GameStats {
   gameKey: GameKey;
@@ -219,118 +220,50 @@ export async function getRecommendations(req: Request, res: Response): Promise<v
     const sessions = await GameSession.find({
       childId,
       createdAt: { $gte: startDate },
-    });
+    }).sort({ createdAt: -1 });
 
     const emotions = await EmotionRecord.find({
       childId,
       timestamp: { $gte: startDate },
-    });
+    }).sort({ timestamp: -1 });
 
-    const recommendations: Array<{
-      type: "skill" | "emotional" | "engagement" | "general";
-      priority: "high" | "medium" | "low";
-      title: string;
-      description: string;
-    }> = [];
+    const achievements = await Achievement.find({ childId })
+      .sort({ unlockedAt: -1 })
+      .limit(10);
 
-    // Analyze game performance
-    if (sessions.length === 0) {
-      recommendations.push({
-        type: "engagement",
-        priority: "high",
-        title: "Начните играть!",
-        description: "Ваш ребенок еще не играл в игры. Попробуйте начать с простых игр на память.",
-      });
-    } else {
-      // Calculate performance by game
-      const gamePerformance = new Map<string, { accuracy: number; count: number }>();
-      
-      for (const session of sessions) {
-        const accuracy = session.totalQuestions > 0 
-          ? session.correctAnswers / session.totalQuestions 
-          : 0;
-        const existing = gamePerformance.get(session.gameKey) || { accuracy: 0, count: 0 };
-        existing.accuracy = (existing.accuracy * existing.count + accuracy) / (existing.count + 1);
-        existing.count += 1;
-        gamePerformance.set(session.gameKey, existing);
-      }
+    // Prepare data for AI service
+    const gameSessionsData = sessions.map((s) => ({
+      gameKey: s.gameKey,
+      score: s.score,
+      maxScore: s.maxScore,
+      accuracy: s.totalQuestions > 0 ? s.correctAnswers / s.totalQuestions : 0,
+      duration: s.duration,
+      difficulty: s.difficulty,
+      completedAt: s.completedAt,
+    }));
 
-      // Find weak areas
-      for (const [gameKey, stats] of gamePerformance) {
-        if (stats.accuracy < 0.5 && stats.count >= 3) {
-          const gameNames: Record<string, string> = {
-            "memory-match": "Игра на память",
-            "pattern-sequence": "Узоры и последовательности",
-            "math-adventure": "Математика",
-            "word-builder": "Слова и буквы",
-            "emotion-cards": "Эмоции",
-            "puzzle-solve": "Головоломки",
-          };
-          
-          recommendations.push({
-            type: "skill",
-            priority: "high",
-            title: `Улучшите навыки: ${gameNames[gameKey] || gameKey}`,
-            description: `Ребенок показывает результат ${Math.round(stats.accuracy * 100)}% в этой игре. Рекомендуем больше практики на легком уровне сложности.`,
-          });
-        }
-      }
+    const emotionsData = emotions.map((e) => ({
+      emotion: e.emotion,
+      intensity: e.intensity,
+      context: e.context,
+      timestamp: e.timestamp,
+    }));
 
-      // Check for games not played
-      const allGames = ["memory-match", "pattern-sequence", "math-adventure", "word-builder", "emotion-cards", "puzzle-solve"];
-      const playedGames = new Set(gamePerformance.keys());
-      const unplayedGames = allGames.filter(g => !playedGames.has(g));
-      
-      if (unplayedGames.length > 0) {
-        recommendations.push({
-          type: "engagement",
-          priority: "medium",
-          title: "Попробуйте новые игры",
-          description: `Есть ${unplayedGames.length} игр, которые ребенок еще не пробовал. Разнообразие помогает развитию!`,
-        });
-      }
-    }
+    const achievementNames = achievements.map((a) => a.name);
 
-    // Analyze emotions
-    if (emotions.length > 0) {
-      const emotionCounts = new Map<string, number>();
-      for (const e of emotions) {
-        emotionCounts.set(e.emotion, (emotionCounts.get(e.emotion) || 0) + 1);
-      }
-
-      const negativeEmotions = (emotionCounts.get("sad") || 0) + 
-                               (emotionCounts.get("angry") || 0) + 
-                               (emotionCounts.get("fearful") || 0);
-      const totalEmotions = emotions.length;
-
-      if (negativeEmotions / totalEmotions > 0.3) {
-        recommendations.push({
-          type: "emotional",
-          priority: "high",
-          title: "Обратите внимание на эмоциональное состояние",
-          description: "Замечено много негативных эмоций во время игр. Попробуйте поговорить с ребенком и выбрать более спокойные игры.",
-        });
-      }
-
-      if ((emotionCounts.get("happy") || 0) / totalEmotions > 0.5) {
-        recommendations.push({
-          type: "emotional",
-          priority: "low",
-          title: "Отличное настроение!",
-          description: "Ребенок часто радуется во время игр. Продолжайте в том же духе!",
-        });
-      }
-    }
-
-    // General recommendations based on level
-    if (child.level >= 3 && child.level < 5) {
-      recommendations.push({
-        type: "general",
-        priority: "medium",
-        title: "Время для нового уровня сложности",
-        description: "Ребенок хорошо прогрессирует! Попробуйте игры на среднем уровне сложности.",
-      });
-    }
+    // Generate AI recommendations
+    const recommendations = await generateRecommendations(
+      {
+        name: child.name,
+        age: child.age,
+        level: child.level,
+        totalPoints: child.totalPoints,
+        language: child.language || "ru",
+      },
+      gameSessionsData,
+      emotionsData,
+      achievementNames,
+    );
 
     res.json({
       childId,

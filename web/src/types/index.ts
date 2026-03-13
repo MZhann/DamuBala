@@ -103,6 +103,7 @@ export interface GameSessionResponse {
   newLevel: number;
   leveledUp: boolean;
   newAchievements: string[];
+  recommendation?: Recommendation; // AI-generated post-game recommendation
 }
 
 // Achievement types
@@ -192,6 +193,7 @@ export interface Recommendation {
   priority: "high" | "medium" | "low";
   title: string;
   description: string;
+  actionableSteps?: string[];
 }
 
 // API Response types

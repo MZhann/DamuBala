@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useChild } from "@/lib/child-context";
 import { Mascot } from "@/components/Mascot";
-import type { Child, Difficulty } from "@/types";
+import type { Child, Difficulty, Recommendation } from "@/types";
 
 // Import game components
 import MemoryMatchGame from "@/components/games/MemoryMatchGame";
@@ -31,6 +31,8 @@ export default function GamePage({ params }: { params: Promise<{ gameKey: string
     totalQuestions: number;
     duration: number;
   } | null>(null);
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
+  const [isLoadingRecommendation, setIsLoadingRecommendation] = useState(false);
 
   useEffect(() => {
     if (!currentChild && childIdFromUrl) {
@@ -62,6 +64,8 @@ export default function GamePage({ params }: { params: Promise<{ gameKey: string
   }) => {
     setGameResult(result);
     setGameStarted(false);
+    setIsLoadingRecommendation(true);
+    setRecommendation(null);
 
     if (child) {
       try {
@@ -86,9 +90,18 @@ export default function GamePage({ params }: { params: Promise<{ gameKey: string
           totalPoints: response.newTotalPoints,
           level: response.newLevel,
         });
+        
+        // Store AI recommendation if available
+        if (response.recommendation) {
+          setRecommendation(response.recommendation);
+        }
       } catch (error) {
         console.error("Failed to save game session:", error);
+      } finally {
+        setIsLoadingRecommendation(false);
       }
+    } else {
+      setIsLoadingRecommendation(false);
     }
   };
 
@@ -162,10 +175,61 @@ export default function GamePage({ params }: { params: Promise<{ gameKey: string
             </div>
           </div>
 
+          {/* AI Recommendation */}
+          {isLoadingRecommendation ? (
+            <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl border border-primary/20">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-lg animate-pulse">🤖</span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-700">AI анализирует результаты...</p>
+                  <p className="text-xs text-gray-500 mt-1">Генерируем персональную рекомендацию</p>
+                </div>
+              </div>
+            </div>
+          ) : recommendation ? (
+            <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl border border-primary/20 animate-fade-in">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">🤖</div>
+                <div className="flex-1 text-left">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-display font-bold text-sm text-gray-800">{recommendation.title}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      recommendation.priority === "high" ? "bg-red-100 text-red-700" :
+                      recommendation.priority === "medium" ? "bg-yellow-100 text-yellow-700" :
+                      "bg-blue-100 text-blue-700"
+                    }`}>
+                      {recommendation.priority === "high" ? "Важно" : recommendation.priority === "medium" ? "Средне" : "Низко"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{recommendation.description}</p>
+                  {recommendation.actionableSteps && recommendation.actionableSteps.length > 0 && (
+                    <ul className="text-xs text-gray-500 space-y-1">
+                      {recommendation.actionableSteps.map((step, i) => (
+                        <li key={i} className="flex items-start gap-1">
+                          <span>•</span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex gap-3">
             <button
               className="flex-1 py-3 rounded-full border-2 border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-all"
-              onClick={() => router.push("/child")}
+              onClick={() => {
+                setGameResult(null);
+                setRecommendation(null);
+                router.push("/child");
+              }}
             >
               🏠 Меню
             </button>
@@ -173,6 +237,7 @@ export default function GamePage({ params }: { params: Promise<{ gameKey: string
               className="flex-1 btn-primary py-3"
               onClick={() => {
                 setGameResult(null);
+                setRecommendation(null);
                 setGameStarted(true);
               }}
             >

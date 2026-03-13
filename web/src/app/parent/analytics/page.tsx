@@ -4,13 +4,15 @@ import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import type { Child, AnalyticsSummary } from "@/types";
+import type { Child, AnalyticsSummary, Recommendation } from "@/types";
 
 export default function AnalyticsPage() {
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
 
   useEffect(() => {
     loadChildren();
@@ -42,6 +44,18 @@ export default function AnalyticsPage() {
       setAnalytics(data);
     } catch (error) {
       console.error("Failed to load analytics:", error);
+    }
+    
+    // Load AI recommendations
+    setIsLoadingRecommendations(true);
+    try {
+      const { recommendations } = await api.getRecommendations(childId);
+      setRecommendations(recommendations);
+    } catch (error) {
+      console.error("Failed to load recommendations:", error);
+      setRecommendations([]);
+    } finally {
+      setIsLoadingRecommendations(false);
     }
   };
 
@@ -149,11 +163,80 @@ export default function AnalyticsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <p className="text-muted-foreground">
-                  Играйте больше, чтобы получить персональные рекомендации!
+              {isLoadingRecommendations ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-2xl animate-pulse">🤖</span>
+                    </div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <p className="font-display font-semibold text-lg text-gray-800">
+                      AI анализирует данные...
+                    </p>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                      Генерируем персональные рекомендации для {selectedChild.name}
+                    </p>
+                  </div>
+                  <div className="flex gap-1 mt-2">
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              ) : recommendations.length > 0 ? (
+                <div className="space-y-4">
+                  {recommendations.map((rec, i) => (
+                    <div
+                      key={i}
+                      className="p-4 bg-white/50 rounded-xl border border-primary/10 hover:border-primary/30 transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <h4 className="font-display font-bold text-sm flex-1">{rec.title}</h4>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
+                            rec.priority === "high"
+                              ? "bg-red-100 text-red-700"
+                              : rec.priority === "medium"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {rec.priority === "high" ? "Важно" : rec.priority === "medium" ? "Средне" : "Низко"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">{rec.description}</p>
+                      {rec.actionableSteps && rec.actionableSteps.length > 0 && (
+                        <ul className="text-xs text-muted-foreground space-y-1 mt-2">
+                          {rec.actionableSteps.map((step, j) => (
+                            <li key={j} className="flex items-start gap-2">
+                              <span className="text-primary mt-0.5">•</span>
+                              <span>{step}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="mt-2 text-xs text-muted-foreground/60">
+                        <span className={`inline-block px-2 py-0.5 rounded-full ${
+                          rec.type === "skill" ? "bg-blue-100 text-blue-700" :
+                          rec.type === "emotional" ? "bg-pink-100 text-pink-700" :
+                          rec.type === "engagement" ? "bg-green-100 text-green-700" :
+                          "bg-gray-100 text-gray-700"
+                        }`}>
+                          {rec.type === "skill" ? "Навыки" :
+                           rec.type === "emotional" ? "Эмоции" :
+                           rec.type === "engagement" ? "Вовлеченность" : "Общее"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-4">
+                  Играйте больше, чтобы получить персональные рекомендации от AI!
                 </p>
-              </div>
+              )}
             </CardContent>
           </Card>
 

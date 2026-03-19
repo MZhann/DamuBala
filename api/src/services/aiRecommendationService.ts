@@ -344,6 +344,180 @@ function generateFallbackRecommendations(
   ];
 }
 
+export interface WeeklyReportData {
+  summary: string;
+  highlights: string[];
+  concerns: string[];
+  emotionalInsight: string;
+  learningProgress: string;
+  chatInsight: string;
+  parentTips: string[];
+  overallScore: number; // 1-10
+}
+
+/**
+ * Generate a comprehensive AI weekly report for parents
+ */
+export async function generateWeeklyReport(
+  child: ChildProfile,
+  gameSessions: GameSessionData[],
+  emotions: EmotionData[],
+  achievements: string[],
+  chatMessageCount: number,
+  chatTopics: string[],
+): Promise<WeeklyReportData> {
+  const totalGames = gameSessions.length;
+  const totalTime = gameSessions.reduce((sum, s) => sum + s.duration, 0);
+  const avgAccuracy = totalGames > 0
+    ? gameSessions.reduce((sum, s) => sum + s.accuracy, 0) / totalGames
+    : 0;
+
+  const gameStats = new Map<GameKey, { count: number; avgAccuracy: number }>();
+  for (const session of gameSessions) {
+    const existing = gameStats.get(session.gameKey) || { count: 0, avgAccuracy: 0 };
+    existing.count += 1;
+    existing.avgAccuracy = (existing.avgAccuracy * (existing.count - 1) + session.accuracy) / existing.count;
+    gameStats.set(session.gameKey, existing);
+  }
+
+  const emotionCounts = new Map<EmotionType, number>();
+  for (const e of emotions) {
+    emotionCounts.set(e.emotion, (emotionCounts.get(e.emotion) || 0) + 1);
+  }
+
+  const openai = getOpenAIClient();
+
+  if (!openai) {
+    return generateFallbackWeeklyReport(child, totalGames, totalTime, avgAccuracy, gameStats, emotionCounts, chatMessageCount, achievements);
+  }
+
+  const prompt = `Ты — AI-аналитик детского образовательного приложения DamuBala. Создай подробный недельный отчёт ДЛЯ РОДИТЕЛЯ о прогрессе ребёнка. Пиши на русском языке, профессионально но дружелюбно.
+
+**Ребёнок:** ${child.name}, ${child.age} лет, уровень ${child.level}, ${child.totalPoints} очков
+
+**Активность за неделю:**
+- Всего игр: ${totalGames}
+- Общее время: ${Math.round(totalTime / 60)} минут
+- Средняя точность: ${Math.round(avgAccuracy * 100)}%
+
+**По играм:**
+${Array.from(gameStats.entries()).map(([k, v]) => `- ${GAME_NAMES[k]}: ${v.count} игр, точность ${Math.round(v.avgAccuracy * 100)}%`).join("\n") || "Нет данных"}
+
+**Эмоции:**
+${Array.from(emotionCounts.entries()).map(([k, v]) => `- ${EMOTION_NAMES[k]}: ${v} раз`).join("\n") || "Нет данных"}
+
+**AI-друг:**
+- Сообщений за неделю: ${chatMessageCount}
+- Темы разговоров: ${chatTopics.length > 0 ? chatTopics.join(", ") : "Нет данных"}
+
+**Достижения за неделю:** ${achievements.length > 0 ? achievements.join(", ") : "Нет новых"}
+
+Создай отчёт в формате JSON:
+{
+  "summary": "Общий обзор недели в 2-3 предложениях для родителя",
+  "highlights": ["Достижение 1", "Достижение 2", "Достижение 3"],
+  "concerns": ["Момент для внимания 1"] или [],
+  "emotionalInsight": "Анализ эмоционального состояния ребёнка за неделю",
+  "learningProgress": "Анализ учебного прогресса: какие навыки развиваются, где трудности",
+  "chatInsight": "Анализ общения с AI-другом: о чём говорит ребёнок, какие интересы",
+  "parentTips": ["Совет родителю 1", "Совет родителю 2", "Совет родителю 3"],
+  "overallScore": 7
+}
+
+overallScore — общая оценка недели от 1 до 10. Верни ТОЛЬКО JSON.`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "Ты — профессиональный детский психолог и аналитик. Пишешь подробные, полезные отчёты для родителей на русском языке. Отвечай строго в формате JSON." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+      response_format: { type: "json_object" },
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (text) {
+      const parsed = JSON.parse(text);
+      return {
+        summary: parsed.summary || "Отчёт за неделю",
+        highlights: Array.isArray(parsed.highlights) ? parsed.highlights.slice(0, 5) : [],
+        concerns: Array.isArray(parsed.concerns) ? parsed.concerns.slice(0, 3) : [],
+        emotionalInsight: parsed.emotionalInsight || "Нет данных об эмоциях",
+        learningProgress: parsed.learningProgress || "Нет данных о прогрессе",
+        chatInsight: parsed.chatInsight || "Нет данных о чате",
+        parentTips: Array.isArray(parsed.parentTips) ? parsed.parentTips.slice(0, 5) : [],
+        overallScore: Math.min(10, Math.max(1, Number(parsed.overallScore) || 5)),
+      };
+    }
+  } catch (error) {
+    console.error("❌ Weekly report OpenAI error:", error);
+  }
+
+  return generateFallbackWeeklyReport(child, totalGames, totalTime, avgAccuracy, gameStats, emotionCounts, chatMessageCount, achievements);
+}
+
+function generateFallbackWeeklyReport(
+  child: ChildProfile,
+  totalGames: number,
+  totalTime: number,
+  avgAccuracy: number,
+  gameStats: Map<GameKey, { count: number; avgAccuracy: number }>,
+  emotionCounts: Map<EmotionType, number>,
+  chatMessageCount: number,
+  achievements: string[],
+): WeeklyReportData {
+  const highlights: string[] = [];
+  const concerns: string[] = [];
+
+  if (totalGames > 0) highlights.push(`Сыграно ${totalGames} игр за неделю`);
+  if (avgAccuracy > 0.7) highlights.push(`Средняя точность ${Math.round(avgAccuracy * 100)}% — отличный результат!`);
+  if (achievements.length > 0) highlights.push(`Получено ${achievements.length} новых достижений`);
+  if (chatMessageCount > 0) highlights.push(`${chatMessageCount} сообщений с AI-другом`);
+
+  if (totalGames === 0) concerns.push("На этой неделе ребёнок не играл в игры");
+  if (avgAccuracy < 0.4 && totalGames > 0) concerns.push("Средняя точность ниже 40% — стоит попробовать более лёгкий уровень");
+
+  const negativeEmotions = (emotionCounts.get("sad") || 0) + (emotionCounts.get("angry") || 0) + (emotionCounts.get("fearful") || 0);
+  const totalEmotions = Array.from(emotionCounts.values()).reduce((a, b) => a + b, 0);
+  if (totalEmotions > 0 && negativeEmotions / totalEmotions > 0.4) {
+    concerns.push("Замечено повышенное количество негативных эмоций во время игр");
+  }
+
+  let score = 5;
+  if (totalGames >= 5) score += 1;
+  if (totalGames >= 10) score += 1;
+  if (avgAccuracy > 0.7) score += 1;
+  if (achievements.length > 0) score += 1;
+  if (concerns.length > 1) score -= 1;
+  score = Math.min(10, Math.max(1, score));
+
+  return {
+    summary: totalGames > 0
+      ? `${child.name} провёл${child.age <= 7 ? "" : "(а)"} активную неделю: ${totalGames} игр за ${Math.round(totalTime / 60)} минут со средней точностью ${Math.round(avgAccuracy * 100)}%.`
+      : `${child.name} не играл${child.age <= 7 ? "" : "(а)"} на этой неделе. Попробуйте мотивировать ребёнка поиграть в развивающие игры.`,
+    highlights: highlights.length > 0 ? highlights : ["Начните играть, чтобы видеть достижения"],
+    concerns,
+    emotionalInsight: totalEmotions > 0
+      ? `За неделю зафиксировано ${totalEmotions} эмоциональных записей. ${negativeEmotions > 0 ? `Из них ${negativeEmotions} негативных.` : "Преобладают позитивные эмоции."}`
+      : "Нет данных об эмоциях за эту неделю.",
+    learningProgress: totalGames > 0
+      ? `Ребёнок играл в ${gameStats.size} разных игр. ${avgAccuracy > 0.6 ? "Показывает хорошие результаты." : "Есть пространство для улучшения."}`
+      : "Нет данных об учебном прогрессе.",
+    chatInsight: chatMessageCount > 0
+      ? `${child.name} отправил${child.age <= 7 ? "" : "(а)"} ${chatMessageCount} сообщений AI-другу за неделю.`
+      : "Ребёнок не общался с AI-другом на этой неделе.",
+    parentTips: [
+      "Хвалите ребёнка за каждое достижение, даже небольшое",
+      "Играйте вместе — это усиливает мотивацию",
+      "Следите за тем, чтобы игровые сессии не были слишком длинными",
+    ],
+    overallScore: score,
+  };
+}
+
 /**
  * Generate a quick recommendation after a single game session
  */

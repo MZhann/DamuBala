@@ -239,6 +239,42 @@ export interface SendAIFriendMessageResponse {
   timestamp: string;
 }
 
+// Weekly Report types
+export interface WeeklyReport {
+  summary: string;
+  highlights: string[];
+  concerns: string[];
+  emotionalInsight: string;
+  learningProgress: string;
+  chatInsight: string;
+  parentTips: string[];
+  overallScore: number;
+}
+
+export interface WeeklyReportResponse {
+  childId: string;
+  report: WeeklyReport;
+  period: { startDate: string; endDate: string };
+  generatedAt: string;
+}
+
+// Chat Analytics types
+export interface DailyChatActivity {
+  date: string;
+  childMessages: number;
+  aiMessages: number;
+}
+
+export interface ChatAnalytics {
+  childId: string;
+  totalMessages: number;
+  childMessages: number;
+  aiMessages: number;
+  avgMessageLength: number;
+  dailyChatActivity: DailyChatActivity[];
+  activeDays: number;
+}
+
 // API Response types
 export interface ApiError {
   error: string;

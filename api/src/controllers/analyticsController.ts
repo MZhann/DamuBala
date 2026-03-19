@@ -1,9 +1,9 @@
 // api/src/controllers/analyticsController.ts
 import { Request, Response } from "express";
-import { GameSession, EmotionRecord, Child, Achievement } from "../models/index.js";
+import { GameSession, EmotionRecord, Child, Achievement, AIFriendMessage } from "../models/index.js";
 import type { GameKey } from "../models/GameSession.js";
 import type { EmotionType } from "../models/EmotionRecord.js";
-import { generateRecommendations } from "../services/aiRecommendationService.js";
+import { generateRecommendations, generateWeeklyReport } from "../services/aiRecommendationService.js";
 
 interface GameStats {
   gameKey: GameKey;
@@ -267,12 +267,169 @@ export async function getRecommendations(req: Request, res: Response): Promise<v
 
     res.json({
       childId,
-      recommendations: recommendations.slice(0, 5), // Limit to 5 recommendations
+      recommendations: recommendations.slice(0, 5),
       generatedAt: new Date(),
     });
   } catch (error) {
     console.error("Get recommendations error:", error);
     res.status(500).json({ error: "Failed to get recommendations" });
+  }
+}
+
+/**
+ * Get AI-generated weekly report for a child
+ * GET /api/analytics/weekly-report/:childId
+ */
+export async function getWeeklyReport(req: Request, res: Response): Promise<void> {
+  try {
+    const { childId } = req.params;
+
+    const child = await Child.findById(childId);
+    if (!child) {
+      res.status(404).json({ error: "Child not found" });
+      return;
+    }
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 7);
+
+    const [sessions, emotions, achievements, chatMessages] = await Promise.all([
+      GameSession.find({ childId, createdAt: { $gte: startDate } }).sort({ createdAt: -1 }),
+      EmotionRecord.find({ childId, timestamp: { $gte: startDate } }).sort({ timestamp: -1 }),
+      Achievement.find({ childId, unlockedAt: { $gte: startDate } }),
+      AIFriendMessage.find({ childId, timestamp: { $gte: startDate } }),
+    ]);
+
+    const gameSessionsData = sessions.map((s) => ({
+      gameKey: s.gameKey,
+      score: s.score,
+      maxScore: s.maxScore,
+      accuracy: s.totalQuestions > 0 ? s.correctAnswers / s.totalQuestions : 0,
+      duration: s.duration,
+      difficulty: s.difficulty,
+      completedAt: s.completedAt,
+    }));
+
+    const emotionsData = emotions.map((e) => ({
+      emotion: e.emotion,
+      intensity: e.intensity,
+      context: e.context,
+      timestamp: e.timestamp,
+    }));
+
+    const childMessages = chatMessages.filter((m) => m.role === "child");
+    const chatTopics = childMessages
+      .slice(0, 10)
+      .map((m) => m.content.substring(0, 50));
+
+    const report = await generateWeeklyReport(
+      {
+        name: child.name,
+        age: child.age,
+        level: child.level,
+        totalPoints: child.totalPoints,
+        language: child.language || "ru",
+      },
+      gameSessionsData,
+      emotionsData,
+      achievements.map((a) => a.name),
+      chatMessages.length,
+      chatTopics,
+    );
+
+    res.json({
+      childId,
+      report,
+      period: { startDate, endDate: new Date() },
+      generatedAt: new Date(),
+    });
+  } catch (error) {
+    console.error("Get weekly report error:", error);
+    res.status(500).json({ error: "Failed to generate weekly report" });
+  }
+}
+
+/**
+ * Get chat analytics for a child
+ * GET /api/analytics/chat-stats/:childId
+ */
+export async function getChatAnalytics(req: Request, res: Response): Promise<void> {
+  try {
+    const { childId } = req.params;
+    const { days = "30" } = req.query;
+
+    const child = await Child.findById(childId);
+    if (!child) {
+      res.status(404).json({ error: "Child not found" });
+      return;
+    }
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - Number(days));
+
+    const messages = await AIFriendMessage.find({
+      childId,
+      timestamp: { $gte: startDate },
+    }).sort({ timestamp: 1 });
+
+    const totalMessages = messages.length;
+    const childMessages = messages.filter((m) => m.role === "child").length;
+    const aiMessages = messages.filter((m) => m.role === "ai").length;
+
+    // Daily message counts
+    const dailyMessages = await AIFriendMessage.aggregate([
+      {
+        $match: {
+          childId: child._id,
+          timestamp: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
+            role: "$role",
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.date": 1 } },
+    ]);
+
+    const dailyChatActivity: { date: string; childMessages: number; aiMessages: number }[] = [];
+    const dateMap = new Map<string, { childMessages: number; aiMessages: number }>();
+
+    for (const entry of dailyMessages) {
+      const date = entry._id.date;
+      const existing = dateMap.get(date) || { childMessages: 0, aiMessages: 0 };
+      if (entry._id.role === "child") existing.childMessages = entry.count;
+      else existing.aiMessages = entry.count;
+      dateMap.set(date, existing);
+    }
+
+    for (const [date, counts] of dateMap) {
+      dailyChatActivity.push({ date, ...counts });
+    }
+    dailyChatActivity.sort((a, b) => a.date.localeCompare(b.date));
+
+    // Average message length
+    const childMsgs = messages.filter((m) => m.role === "child");
+    const avgMessageLength = childMsgs.length > 0
+      ? Math.round(childMsgs.reduce((sum, m) => sum + m.content.length, 0) / childMsgs.length)
+      : 0;
+
+    res.json({
+      childId,
+      totalMessages,
+      childMessages,
+      aiMessages,
+      avgMessageLength,
+      dailyChatActivity,
+      activeDays: dateMap.size,
+    });
+  } catch (error) {
+    console.error("Get chat analytics error:", error);
+    res.status(500).json({ error: "Failed to get chat analytics" });
   }
 }
 

@@ -14,6 +14,8 @@ import type {
   EmotionRecord,
   AnalyticsSummary,
   Recommendation,
+  WeeklyReportResponse,
+  ChatAnalytics,
   AIFriendSettings,
   AIFriendMessage,
   UpdateAIFriendSettingsInput,
@@ -199,6 +201,15 @@ class ApiClient {
     return this.request<{ recommendations: Recommendation[] }>(
       `/analytics/recommendations/${childId}`
     );
+  }
+
+  async getWeeklyReport(childId: string): Promise<WeeklyReportResponse> {
+    return this.request<WeeklyReportResponse>(`/analytics/weekly-report/${childId}`);
+  }
+
+  async getChatAnalytics(childId: string, days?: number): Promise<ChatAnalytics> {
+    const query = days ? `?days=${days}` : "";
+    return this.request<ChatAnalytics>(`/analytics/chat-stats/${childId}${query}`);
   }
 
   // AI Friend endpoints

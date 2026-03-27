@@ -12,6 +12,10 @@ import MemoryMatchGame from "@/components/games/MemoryMatchGame";
 import MathAdventureGame from "@/components/games/MathAdventureGame";
 import FruitNinjaNoseGame from "@/components/games/FruitNinjaNoseGame";
 import PoseMatchGame from "@/components/games/PoseMatchGame";
+import EmotionCardsGame from "@/components/games/EmotionCardsGame";
+import WordBuilderGame from "@/components/games/WordBuilderGame";
+import PatternSequenceGame from "@/components/games/PatternSequenceGame";
+import PuzzleSolveGame from "@/components/games/PuzzleSolveGame";
 
 export default function GamePage({ params }: { params: Promise<{ gameKey: string }> }) {
   const { gameKey } = use(params);
@@ -328,7 +332,35 @@ export default function GamePage({ params }: { params: Promise<{ gameKey: string
             onExit={() => setGameStarted(false)}
           />
         )}
-        {!["memory-match", "math-adventure", "fruit-ninja-nose", "pose-match"].includes(gameKey) && (
+        {gameKey === "emotion-cards" && (
+          <EmotionCardsGame
+            difficulty={difficulty}
+            onComplete={handleGameComplete}
+            onExit={() => setGameStarted(false)}
+          />
+        )}
+        {gameKey === "word-builder" && (
+          <WordBuilderGame
+            difficulty={difficulty}
+            onComplete={handleGameComplete}
+            onExit={() => setGameStarted(false)}
+          />
+        )}
+        {gameKey === "pattern-sequence" && (
+          <PatternSequenceGame
+            difficulty={difficulty}
+            onComplete={handleGameComplete}
+            onExit={() => setGameStarted(false)}
+          />
+        )}
+        {gameKey === "puzzle-solve" && (
+          <PuzzleSolveGame
+            difficulty={difficulty}
+            onComplete={handleGameComplete}
+            onExit={() => setGameStarted(false)}
+          />
+        )}
+        {!["memory-match", "math-adventure", "fruit-ninja-nose", "pose-match", "emotion-cards", "word-builder", "pattern-sequence", "puzzle-solve"].includes(gameKey) && (
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="bg-white rounded-3xl p-8 shadow-lg max-w-md text-center">
               <div className="text-6xl mb-4">🚧</div>

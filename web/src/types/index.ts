@@ -19,6 +19,9 @@ export interface Child {
   pin?: string;
   totalPoints: number;
   level: number;
+  currentStreak: number;
+  bestStreak: number;
+  lastPlayedDate?: string | null;
   createdAt?: string;
 }
 
@@ -95,6 +98,13 @@ export interface SaveGameSessionInput {
   emotionDuringGame?: string;
 }
 
+export interface AchievementDetail {
+  key: string;
+  name: string;
+  icon: string;
+  pointsAwarded: number;
+}
+
 export interface GameSessionResponse {
   message: string;
   session: GameSession;
@@ -103,7 +113,9 @@ export interface GameSessionResponse {
   newLevel: number;
   leveledUp: boolean;
   newAchievements: string[];
-  recommendation?: Recommendation; // AI-generated post-game recommendation
+  newAchievementDetails: AchievementDetail[];
+  streak: { currentStreak: number; bestStreak: number };
+  recommendation?: Recommendation;
 }
 
 // Achievement types
@@ -115,6 +127,14 @@ export interface Achievement {
   icon: string;
   pointsAwarded: number;
   unlockedAt: string;
+}
+
+export interface AchievementDefinition {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  pointsAwarded: number;
 }
 
 // Emotion types

@@ -11,6 +11,7 @@ import type {
   SaveGameSessionInput,
   GameSessionResponse,
   Achievement,
+  AchievementDefinition,
   EmotionRecord,
   AnalyticsSummary,
   Recommendation,
@@ -158,8 +159,8 @@ class ApiClient {
     );
   }
 
-  async getAchievements(childId: string): Promise<{ achievements: Achievement[] }> {
-    return this.request<{ achievements: Achievement[] }>(`/games/achievements/${childId}`);
+  async getAchievements(childId: string): Promise<{ achievements: Achievement[]; allDefinitions: AchievementDefinition[] }> {
+    return this.request<{ achievements: Achievement[]; allDefinitions: AchievementDefinition[] }>(`/games/achievements/${childId}`);
   }
 
   // Emotion endpoints

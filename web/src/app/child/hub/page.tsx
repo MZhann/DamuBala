@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useChild } from "@/lib/child-context";
 import { api } from "@/lib/api";
+import { getLevelProgress } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import type { AIFriendSettings } from "@/types";
+import type { Achievement, AchievementDefinition } from "@/types";
 
 const games = [
   { id: "memory-match", icon: "🧠", name: "Память", description: "Найди пары", color: "from-pink-500/20 to-purple-500/20" },
@@ -26,6 +27,8 @@ export default function ChildHubPage() {
   const router = useRouter();
   const { currentChild, clearChild, isHydrated } = useChild();
   const [aiFriendEnabled, setAiFriendEnabled] = useState(false);
+  const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[]>([]);
+  const [allDefinitions, setAllDefinitions] = useState<AchievementDefinition[]>([]);
 
   useEffect(() => {
     if (isHydrated && !currentChild) {
@@ -34,20 +37,20 @@ export default function ChildHubPage() {
   }, [currentChild, isHydrated, router]);
 
   useEffect(() => {
-    if (currentChild) {
-      loadAIFriendStatus();
-    }
-  }, [currentChild]);
-
-  const loadAIFriendStatus = async () => {
     if (!currentChild) return;
-    try {
-      const { settings } = await api.getAIFriendSettings(currentChild.id);
-      setAiFriendEnabled(settings.enabled);
-    } catch {
-      // Ignore errors
-    }
-  };
+    const loadData = async () => {
+      try {
+        const { settings } = await api.getAIFriendSettings(currentChild.id);
+        setAiFriendEnabled(settings.enabled);
+      } catch { /* ignore */ }
+      try {
+        const { achievements, allDefinitions: defs } = await api.getAchievements(currentChild.id);
+        setUnlockedAchievements(achievements);
+        setAllDefinitions(defs);
+      } catch { /* ignore */ }
+    };
+    loadData();
+  }, [currentChild]);
 
   if (!isHydrated) {
     return (
@@ -63,7 +66,9 @@ export default function ChildHubPage() {
 
   const avatarEmojis = ["👦", "👧", "🧒", "👶"];
   const avatarEmoji = avatarEmojis[Math.abs(currentChild.name.charCodeAt(0)) % avatarEmojis.length];
-  const levelProgress = currentChild.totalPoints % 100;
+  const { current: lvlCurrent, needed: lvlNeeded, percentage: lvlPercent } = getLevelProgress(currentChild.totalPoints, currentChild.level);
+  const streak = currentChild.currentStreak || 0;
+  const unlockedKeys = new Set(unlockedAchievements.map((a) => a.key));
 
   return (
     <div className="min-h-screen gradient-game p-4">
@@ -75,17 +80,22 @@ export default function ChildHubPage() {
               {avatarEmoji}
             </div>
             <div>
-            <h1 className="font-display text-2xl font-bold">
-              Привет, {currentChild.name}! 👋
-            </h1>
-            <div className="flex items-center gap-3 mt-1">
-              <Badge variant="secondary" className="rounded-lg">
-                Уровень {currentChild.level}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                ⭐ {currentChild.totalPoints} очков
-              </span>
-            </div>
+              <h1 className="font-display text-2xl font-bold">
+                Привет, {currentChild.name}! 👋
+              </h1>
+              <div className="flex items-center gap-3 mt-1">
+                <Badge variant="secondary" className="rounded-lg">
+                  Уровень {currentChild.level}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  ⭐ {currentChild.totalPoints} очков
+                </span>
+                {streak > 0 && (
+                  <span className="text-sm font-medium text-orange-600">
+                    🔥 {streak} {streak === 1 ? "день" : streak < 5 ? "дня" : "дней"}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           
@@ -101,14 +111,50 @@ export default function ChildHubPage() {
           </Button>
         </header>
 
-        {/* Progress */}
-        <Card className="rounded-2xl mb-8">
+        {/* Level Progress */}
+        <Card className="rounded-2xl mb-6">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">До следующего уровня</span>
-              <span className="text-sm font-medium">{levelProgress}/100</span>
+              <span className="text-sm text-muted-foreground">
+                До уровня {currentChild.level + 1}
+              </span>
+              <span className="text-sm font-medium">{lvlCurrent}/{lvlNeeded}</span>
             </div>
-            <Progress value={levelProgress} className="h-3" />
+            <Progress value={lvlPercent} className="h-3" />
+          </CardContent>
+        </Card>
+
+        {/* Streak Card */}
+        <Card className="rounded-2xl mb-6 bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200/50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-3xl">{streak > 0 ? "🔥" : "❄️"}</div>
+                <div>
+                  <h3 className="font-display font-bold text-sm">
+                    {streak > 0 ? `${streak} ${streak === 1 ? "день" : streak < 5 ? "дня" : "дней"} подряд!` : "Начни серию!"}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {streak > 0
+                      ? streak >= 7
+                        ? "Невероятно! Ты настоящий чемпион! 🏆"
+                        : streak >= 3
+                          ? "Отличная серия! Продолжай!"
+                          : "Хорошее начало! Играй каждый день!"
+                      : "Играй каждый день, чтобы начать серию!"
+                    }
+                  </p>
+                </div>
+              </div>
+              {currentChild.bestStreak > 0 && (
+                <div className="text-center">
+                  <div className="text-sm font-display font-bold text-orange-600">
+                    {currentChild.bestStreak}
+                  </div>
+                  <div className="text-xs text-muted-foreground">рекорд</div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -133,11 +179,11 @@ export default function ChildHubPage() {
             🎮 Выбери игру!
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {games.map((game) => (
+            {games.map((game, idx) => (
               <Link key={game.id} href={`/child/game/${game.id}`}>
                 <Card className={`rounded-2xl card-hover cursor-pointer overflow-hidden border-2 border-transparent hover:border-primary transition-all bg-gradient-to-br ${game.color}`}>
                   <CardContent className="p-6 text-center">
-                    <div className="text-5xl mb-3 animate-float" style={{ animationDelay: `${Math.random() * 2}s` }}>
+                    <div className="text-5xl mb-3 animate-float" style={{ animationDelay: `${idx * 0.25}s` }}>
                       {game.icon}
                     </div>
                     <h3 className="font-display font-bold text-lg">{game.name}</h3>
@@ -149,36 +195,47 @@ export default function ChildHubPage() {
           </div>
         </div>
 
-        {/* Achievements Preview */}
+        {/* Achievements */}
         <Card className="rounded-2xl">
           <CardContent className="p-6">
-            <h3 className="font-display font-bold text-lg mb-4 text-center">
-              🏆 Твои достижения
-            </h3>
-            <div className="flex justify-center gap-4 flex-wrap">
-              <AchievementBadge icon="⭐" name="Первая игра" unlocked={true} />
-              <AchievementBadge icon="🔥" name="3 дня подряд" unlocked={false} />
-              <AchievementBadge icon="🧠" name="Мастер памяти" unlocked={false} />
-              <AchievementBadge icon="🔢" name="Математик" unlocked={false} />
-              <AchievementBadge icon="🎯" name="100 очков" unlocked={true} />
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-bold text-lg">
+                🏆 Твои достижения
+              </h3>
+              <span className="text-sm text-muted-foreground">
+                {unlockedAchievements.length}/{allDefinitions.length}
+              </span>
             </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+              {allDefinitions.map((def) => {
+                const unlocked = unlockedKeys.has(def.key);
+                return (
+                  <div
+                    key={def.key}
+                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all ${
+                      unlocked
+                        ? "bg-primary/10 shadow-sm"
+                        : "bg-muted/50 opacity-40 grayscale"
+                    }`}
+                    title={def.description}
+                  >
+                    <div className={`text-3xl ${unlocked ? "animate-pop" : ""}`}>{def.icon}</div>
+                    <span className="text-xs font-medium text-center leading-tight">{def.name}</span>
+                    {unlocked && (
+                      <span className="text-[10px] text-primary font-bold">+{def.pointsAwarded}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {unlockedAchievements.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground mt-4">
+                Играй, чтобы получить свои первые достижения! 🌟
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-
-function AchievementBadge({ icon, name, unlocked }: { icon: string; name: string; unlocked: boolean }) {
-  return (
-    <div className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${
-      unlocked 
-        ? "bg-primary/10" 
-        : "bg-muted/50 opacity-50 grayscale"
-    }`}>
-      <div className="text-3xl">{icon}</div>
-      <span className="text-xs font-medium text-center">{name}</span>
-    </div>
-  );
-}
-

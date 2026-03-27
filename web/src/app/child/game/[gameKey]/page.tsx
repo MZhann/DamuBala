@@ -92,16 +92,16 @@ export default function GamePage({ params }: { params: Promise<{ gameKey: string
           ...child,
           totalPoints: response.newTotalPoints,
           level: response.newLevel,
-          currentStreak: response.streak?.currentStreak ?? child.currentStreak,
-          bestStreak: response.streak?.bestStreak ?? child.bestStreak,
+          currentStreak: response.streak?.currentStreak ?? (child.currentStreak ?? 0),
+          bestStreak: response.streak?.bestStreak ?? (child.bestStreak ?? 0),
         };
         setChild(updatedChild);
         setCurrentChild(updatedChild);
 
-        setPointsEarned(response.pointsEarned);
-        setLeveledUp(response.leveledUp);
-        setNewAchievementDetails(response.newAchievementDetails || []);
-        setStreakInfo(response.streak || null);
+        setPointsEarned(response.pointsEarned ?? 0);
+        setLeveledUp(response.leveledUp ?? false);
+        setNewAchievementDetails(response.newAchievementDetails ?? []);
+        setStreakInfo(response.streak ?? null);
 
         if (response.recommendation) {
           setRecommendation(response.recommendation);

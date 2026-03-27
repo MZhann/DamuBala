@@ -8,9 +8,12 @@ export interface IChild extends Document {
   age: number;
   avatar: string;
   language: "kz" | "ru";
-  pin?: string; // Optional PIN for child mode access
+  pin?: string;
   totalPoints: number;
   level: number;
+  currentStreak: number;
+  bestStreak: number;
+  lastPlayedDate?: string; // YYYY-MM-DD format
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,6 +58,17 @@ const childSchema = new Schema<IChild>(
     level: {
       type: Number,
       default: 1,
+    },
+    currentStreak: {
+      type: Number,
+      default: 0,
+    },
+    bestStreak: {
+      type: Number,
+      default: 0,
+    },
+    lastPlayedDate: {
+      type: String,
     },
   },
   {

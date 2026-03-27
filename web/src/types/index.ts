@@ -19,8 +19,8 @@ export interface Child {
   pin?: string;
   totalPoints: number;
   level: number;
-  currentStreak: number;
-  bestStreak: number;
+  currentStreak?: number;
+  bestStreak?: number;
   lastPlayedDate?: string | null;
   createdAt?: string;
 }
@@ -113,8 +113,8 @@ export interface GameSessionResponse {
   newLevel: number;
   leveledUp: boolean;
   newAchievements: string[];
-  newAchievementDetails: AchievementDetail[];
-  streak: { currentStreak: number; bestStreak: number };
+  newAchievementDetails?: AchievementDetail[];
+  streak?: { currentStreak: number; bestStreak: number };
   recommendation?: Recommendation;
 }
 

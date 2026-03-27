@@ -12,6 +12,19 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import type { Achievement, AchievementDefinition } from "@/types";
 
+// Client-side fallback so the hub works even if the API doesn't return allDefinitions yet
+const FALLBACK_DEFINITIONS: AchievementDefinition[] = [
+  { key: "first-game",    name: "Первые шаги",          description: "Сыграл свою первую игру!",      icon: "🎮", pointsAwarded: 10 },
+  { key: "week-streak",   name: "Недельный воин",        description: "Играл 7 дней подряд!",          icon: "🔥", pointsAwarded: 50 },
+  { key: "memory-master", name: "Мастер памяти",         description: "Набрал 90%+ в игре на память!", icon: "🧠", pointsAwarded: 30 },
+  { key: "math-wizard",   name: "Математический гений",  description: "Набрал 90%+ в математике!",     icon: "🔢", pointsAwarded: 30 },
+  { key: "emotion-expert",name: "Эксперт эмоций",        description: "Набрал 90%+ в эмоциях!",       icon: "😊", pointsAwarded: 25 },
+  { key: "quick-learner", name: "Быстрый ученик",        description: "Сыграл 10 игр!",                icon: "📚", pointsAwarded: 20 },
+  { key: "super-player",  name: "Супер игрок",           description: "Сыграл 50 игр!",                icon: "⭐", pointsAwarded: 100 },
+  { key: "perfect-score", name: "Перфекционист",         description: "Набрал 100% в игре!",           icon: "💯", pointsAwarded: 40 },
+  { key: "level-up",      name: "Новый уровень!",        description: "Достиг нового уровня!",         icon: "🚀", pointsAwarded: 15 },
+];
+
 const games = [
   { id: "memory-match", icon: "🧠", name: "Память", description: "Найди пары", color: "from-pink-500/20 to-purple-500/20" },
   { id: "math-adventure", icon: "🔢", name: "Математика", description: "Реши примеры", color: "from-blue-500/20 to-cyan-500/20" },
@@ -44,9 +57,9 @@ export default function ChildHubPage() {
         setAiFriendEnabled(settings.enabled);
       } catch { /* ignore */ }
       try {
-        const { achievements, allDefinitions: defs } = await api.getAchievements(currentChild.id);
-        setUnlockedAchievements(achievements);
-        setAllDefinitions(defs);
+        const res = await api.getAchievements(currentChild.id);
+        setUnlockedAchievements(res.achievements || []);
+        setAllDefinitions(res.allDefinitions?.length ? res.allDefinitions : FALLBACK_DEFINITIONS);
       } catch { /* ignore */ }
     };
     loadData();
@@ -67,8 +80,10 @@ export default function ChildHubPage() {
   const avatarEmojis = ["👦", "👧", "🧒", "👶"];
   const avatarEmoji = avatarEmojis[Math.abs(currentChild.name.charCodeAt(0)) % avatarEmojis.length];
   const { current: lvlCurrent, needed: lvlNeeded, percentage: lvlPercent } = getLevelProgress(currentChild.totalPoints, currentChild.level);
-  const streak = currentChild.currentStreak || 0;
+  const streak = currentChild.currentStreak ?? 0;
+  const bestStreak = currentChild.bestStreak ?? 0;
   const unlockedKeys = new Set(unlockedAchievements.map((a) => a.key));
+  const displayDefinitions = allDefinitions.length > 0 ? allDefinitions : FALLBACK_DEFINITIONS;
 
   return (
     <div className="min-h-screen gradient-game p-4">
@@ -146,10 +161,10 @@ export default function ChildHubPage() {
                   </p>
                 </div>
               </div>
-              {currentChild.bestStreak > 0 && (
+              {bestStreak > 0 && (
                 <div className="text-center">
                   <div className="text-sm font-display font-bold text-orange-600">
-                    {currentChild.bestStreak}
+                    {bestStreak}
                   </div>
                   <div className="text-xs text-muted-foreground">рекорд</div>
                 </div>
@@ -203,11 +218,11 @@ export default function ChildHubPage() {
                 🏆 Твои достижения
               </h3>
               <span className="text-sm text-muted-foreground">
-                {unlockedAchievements.length}/{allDefinitions.length}
+                {unlockedAchievements.length}/{displayDefinitions.length}
               </span>
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-              {allDefinitions.map((def) => {
+              {displayDefinitions.map((def) => {
                 const unlocked = unlockedKeys.has(def.key);
                 return (
                   <div

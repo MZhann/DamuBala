@@ -1,9 +1,20 @@
 // api/src/controllers/aiFriendController.ts
 import { Request, Response } from "express";
-import { AIFriendSettings, AIFriendMessage, Child } from "../models/index.js";
+import { AIFriendSettings, AIFriendMessage, Child, GameSession, Achievement } from "../models/index.js";
 import { generateAIFriendResponse } from "../services/aiFriendService.js";
 import { ZodError } from "zod";
 import { z } from "zod";
+
+const GAME_NAMES: Record<string, string> = {
+  "memory-match": "Память",
+  "math-adventure": "Математика",
+  "pattern-sequence": "Узоры",
+  "word-builder": "Слова",
+  "emotion-cards": "Эмоции",
+  "puzzle-solve": "Головоломки",
+  "fruit-ninja-nose": "Фруктовый Ниндзя",
+  "pose-match": "Повтори Позу",
+};
 
 // Validation schemas
 const updateSettingsSchema = z.object({
@@ -195,12 +206,33 @@ export async function sendMessageToAIFriend(req: Request, res: Response): Promis
       .select("role content")
       .lean();
 
-    // Generate AI response
+    // Build child progress context for encouragement
+    const [totalGamesPlayed, achievementCount, lastSession] = await Promise.all([
+      GameSession.countDocuments({ childId }),
+      Achievement.countDocuments({ childId }),
+      GameSession.findOne({ childId }).sort({ createdAt: -1 }).lean(),
+    ]);
+
+    const progressContext = {
+      totalPoints: child.totalPoints,
+      level: child.level,
+      currentStreak: child.currentStreak || 0,
+      bestStreak: child.bestStreak || 0,
+      recentGameName: lastSession ? (GAME_NAMES[lastSession.gameKey] || lastSession.gameKey) : undefined,
+      recentScore: lastSession && lastSession.maxScore > 0
+        ? Math.round((lastSession.score / lastSession.maxScore) * 100)
+        : undefined,
+      totalGamesPlayed,
+      achievementCount,
+    };
+
+    // Generate AI response with progress context
     const aiResponse = await generateAIFriendResponse(
       child,
       settings,
       message,
       recentMessages.reverse().map((m) => ({ role: m.role as "child" | "ai", content: m.content })),
+      progressContext,
     );
 
     // Save AI's response

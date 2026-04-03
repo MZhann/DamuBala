@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { connectDB, disconnectDB } from "./config/db.js";
 import { errorHandler } from "./middleware/index.js";
 import routes from "./routes/index.js";
+import { startTelegramBot, stopTelegramBot } from "./services/telegramBotService.js";
 
 dotenv.config();
 
@@ -72,6 +73,7 @@ async function start() {
     console.log(`🚀 DamuBala API running on http://${HOST}:${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`📚 Routes: /api/auth, /api/children, /api/games, /api/analytics, /api/emotions`);
+    console.log(`🤖 Telegram bot: ${process.env.TELEGRAM_BOT_TOKEN ? "enabled" : "disabled (no TELEGRAM_BOT_TOKEN)"}`);
   });
 
   // Then connect to MongoDB (with retry)
@@ -79,6 +81,7 @@ async function start() {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       await connectDB();
+      await startTelegramBot();
       break;
     } catch (err) {
       console.error(`❌ MongoDB connection attempt ${attempt}/${MAX_RETRIES} failed:`, err);
@@ -94,8 +97,9 @@ async function start() {
 }
 
 // Graceful shutdown
-function shutdown(signal: string) {
+async function shutdown(signal: string) {
   console.log(`\n${signal} received. Shutting down gracefully...`);
+  await stopTelegramBot();
   disconnectDB()
     .then(() => process.exit(0))
     .catch(() => process.exit(1));

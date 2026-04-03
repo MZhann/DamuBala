@@ -6,4 +6,5 @@ export { EmotionRecord, type IEmotionRecord, type EmotionType } from "./EmotionR
 export { Achievement, type IAchievement, type AchievementKey, ACHIEVEMENT_DEFINITIONS } from "./Achievement.js";
 export { AIFriendSettings, type IAIFriendSettings } from "./AIFriendSettings.js";
 export { AIFriendMessage, type IAIFriendMessage } from "./AIFriendMessage.js";
+export { TelegramLink, type ITelegramLink } from "./TelegramLink.js";
 

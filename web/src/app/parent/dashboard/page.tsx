@@ -118,11 +118,10 @@ export default function ParentDashboard() {
           <CardDescription>Что вы хотите сделать?</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <QuickAction href="/parent/children" icon="👥" label="Управление детьми" />
             <QuickAction href="/parent/analytics" icon="📊" label="Аналитика" />
             <QuickAction href="/child" icon="🎮" label="Начать игру" />
-            <QuickAction href="/parent/settings" icon="⚙️" label="Настройки" />
           </div>
         </CardContent>
       </Card>

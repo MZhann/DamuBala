@@ -17,7 +17,6 @@ export function Sidebar({ childName = "ребенка" }: SidebarProps) {
     { href: "/parent/dashboard", icon: "🏠", label: "Parent Dashboard" },
     { href: "/child", icon: "🎮", label: "Game Selection" },
     { href: "/parent/children", icon: "🏆", label: "Rewards & Badges" },
-    { href: "/parent/settings", icon: "⚙️", label: "Settings" },
   ];
 
   return (

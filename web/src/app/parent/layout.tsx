@@ -81,10 +81,6 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/parent/settings">⚙️ Настройки</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   className="text-destructive focus:text-destructive"
                   onClick={() => {

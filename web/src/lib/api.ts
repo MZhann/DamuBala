@@ -11,9 +11,17 @@ import type {
   SaveGameSessionInput,
   GameSessionResponse,
   Achievement,
+  AchievementDefinition,
   EmotionRecord,
   AnalyticsSummary,
   Recommendation,
+  WeeklyReportResponse,
+  ChatAnalytics,
+  AIFriendSettings,
+  AIFriendMessage,
+  UpdateAIFriendSettingsInput,
+  SendAIFriendMessageInput,
+  SendAIFriendMessageResponse,
 } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://damubala-production.up.railway.app";
@@ -151,8 +159,8 @@ class ApiClient {
     );
   }
 
-  async getAchievements(childId: string): Promise<{ achievements: Achievement[] }> {
-    return this.request<{ achievements: Achievement[] }>(`/games/achievements/${childId}`);
+  async getAchievements(childId: string): Promise<{ achievements: Achievement[]; allDefinitions: AchievementDefinition[] }> {
+    return this.request<{ achievements: Achievement[]; allDefinitions: AchievementDefinition[] }>(`/games/achievements/${childId}`);
   }
 
   // Emotion endpoints
@@ -193,6 +201,57 @@ class ApiClient {
   async getRecommendations(childId: string): Promise<{ recommendations: Recommendation[] }> {
     return this.request<{ recommendations: Recommendation[] }>(
       `/analytics/recommendations/${childId}`
+    );
+  }
+
+  async getWeeklyReport(childId: string): Promise<WeeklyReportResponse> {
+    return this.request<WeeklyReportResponse>(`/analytics/weekly-report/${childId}`);
+  }
+
+  async getChatAnalytics(childId: string, days?: number): Promise<ChatAnalytics> {
+    const query = days ? `?days=${days}` : "";
+    return this.request<ChatAnalytics>(`/analytics/chat-stats/${childId}${query}`);
+  }
+
+  // AI Friend endpoints
+  async getAIFriendSettings(childId: string): Promise<{ settings: AIFriendSettings }> {
+    return this.request<{ settings: AIFriendSettings }>(`/ai-friend/settings/${childId}`);
+  }
+
+  async updateAIFriendSettings(
+    childId: string,
+    input: UpdateAIFriendSettingsInput
+  ): Promise<{ message: string; settings: AIFriendSettings }> {
+    return this.request<{ message: string; settings: AIFriendSettings }>(
+      `/ai-friend/settings/${childId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }
+    );
+  }
+
+  async sendAIFriendMessage(
+    childId: string,
+    input: SendAIFriendMessageInput
+  ): Promise<SendAIFriendMessageResponse> {
+    return this.request<SendAIFriendMessageResponse>(`/ai-friend/chat/${childId}`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async getAIFriendChatHistory(
+    childId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<{ messages: AIFriendMessage[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set("limit", options.limit.toString());
+    if (options?.offset) params.set("offset", options.offset.toString());
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return this.request<{ messages: AIFriendMessage[]; total: number }>(
+      `/ai-friend/chat/${childId}/history${query}`
     );
   }
 }

@@ -19,6 +19,9 @@ export interface Child {
   pin?: string;
   totalPoints: number;
   level: number;
+  currentStreak?: number;
+  bestStreak?: number;
+  lastPlayedDate?: string | null;
   createdAt?: string;
 }
 
@@ -65,7 +68,9 @@ export type GameKey =
   | "math-adventure"
   | "word-builder"
   | "emotion-cards"
-  | "puzzle-solve";
+  | "puzzle-solve"
+  | "fruit-ninja-nose"
+  | "pose-match";
 
 export type Difficulty = "easy" | "medium" | "hard";
 
@@ -93,6 +98,13 @@ export interface SaveGameSessionInput {
   emotionDuringGame?: string;
 }
 
+export interface AchievementDetail {
+  key: string;
+  name: string;
+  icon: string;
+  pointsAwarded: number;
+}
+
 export interface GameSessionResponse {
   message: string;
   session: GameSession;
@@ -101,6 +113,9 @@ export interface GameSessionResponse {
   newLevel: number;
   leveledUp: boolean;
   newAchievements: string[];
+  newAchievementDetails?: AchievementDetail[];
+  streak?: { currentStreak: number; bestStreak: number };
+  recommendation?: Recommendation;
 }
 
 // Achievement types
@@ -112,6 +127,14 @@ export interface Achievement {
   icon: string;
   pointsAwarded: number;
   unlockedAt: string;
+}
+
+export interface AchievementDefinition {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  pointsAwarded: number;
 }
 
 // Emotion types
@@ -190,6 +213,86 @@ export interface Recommendation {
   priority: "high" | "medium" | "low";
   title: string;
   description: string;
+  actionableSteps?: string[];
+}
+
+// AI Friend types
+export type AIFriendPersonality = "friendly" | "playful" | "supportive" | "wise" | "funny";
+export type AIFriendAgeLevel = "same" | "older" | "peer";
+
+export interface AIFriendSettings {
+  id: string;
+  childId: string;
+  enabled: boolean;
+  name: string;
+  personality: AIFriendPersonality;
+  ageLevel: AIFriendAgeLevel;
+  topics: string[];
+  restrictions: string[];
+  customInstructions?: string;
+}
+
+export interface AIFriendMessage {
+  id: string;
+  role: "child" | "ai";
+  content: string;
+  timestamp: string;
+}
+
+export interface UpdateAIFriendSettingsInput {
+  enabled?: boolean;
+  name?: string;
+  personality?: AIFriendPersonality;
+  ageLevel?: AIFriendAgeLevel;
+  topics?: string[];
+  restrictions?: string[];
+  customInstructions?: string;
+}
+
+export interface SendAIFriendMessageInput {
+  message: string;
+}
+
+export interface SendAIFriendMessageResponse {
+  message: string;
+  response: string;
+  timestamp: string;
+}
+
+// Weekly Report types
+export interface WeeklyReport {
+  summary: string;
+  highlights: string[];
+  concerns: string[];
+  emotionalInsight: string;
+  learningProgress: string;
+  chatInsight: string;
+  parentTips: string[];
+  overallScore: number;
+}
+
+export interface WeeklyReportResponse {
+  childId: string;
+  report: WeeklyReport;
+  period: { startDate: string; endDate: string };
+  generatedAt: string;
+}
+
+// Chat Analytics types
+export interface DailyChatActivity {
+  date: string;
+  childMessages: number;
+  aiMessages: number;
+}
+
+export interface ChatAnalytics {
+  childId: string;
+  totalMessages: number;
+  childMessages: number;
+  aiMessages: number;
+  avgMessageLength: number;
+  dailyChatActivity: DailyChatActivity[];
+  activeDays: number;
 }
 
 // API Response types

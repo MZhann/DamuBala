@@ -38,7 +38,9 @@ NODE_ENV=development
 MONGODB_URI=mongodb://localhost:27017/damubala
 JWT_SECRET=your-super-secret-jwt-key-change-in-production
 JWT_EXPIRES_IN=7d
+OPENAI_API_KEY=your-openai-api-key-here
 ```
+**Note:** Get your OpenAI API key from https://platform.openai.com/api-keys
 
 4. Start development server:
 ```bash
@@ -76,7 +78,8 @@ App will be available at `http://localhost:3000`
 ### For Parents
 - 👤 Registration & Login
 - 👶 Child profile management (multiple children)
-- 📊 Analytics dashboard with AI recommendations
+- 📊 Analytics dashboard with AI-powered recommendations
+- 🤖 Personalized AI suggestions based on child's performance
 - 🔐 PIN protection for child profiles
 
 ### For Children
@@ -126,6 +129,7 @@ App will be available at `http://localhost:3000`
 
 ### Analytics
 - `GET /api/analytics/summary/:childId` - Get analytics summary
+- `GET /api/analytics/recommendations/:childId` - Get AI-generated recommendations
 
 ## 🇰🇿 Languages
 

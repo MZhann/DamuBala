@@ -4,94 +4,154 @@ import { GameSession, Child, Achievement, ACHIEVEMENT_DEFINITIONS } from "../mod
 import { saveGameSessionSchema } from "../utils/validation.js";
 import { ZodError } from "zod";
 import type { AchievementKey } from "../models/Achievement.js";
+import type { GameKey } from "../models/GameSession.js";
+import { generatePostGameRecommendation } from "../services/aiRecommendationService.js";
 
-// Points awarded per score percentage
-const POINTS_MULTIPLIER = {
+const POINTS_MULTIPLIER: Record<string, number> = {
   easy: 1,
   medium: 1.5,
   hard: 2,
 };
 
-/**
- * Calculate level from total points
- */
+const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500];
+
 function calculateLevel(totalPoints: number): number {
-  // Level thresholds: 0-99 = L1, 100-299 = L2, 300-599 = L3, etc.
-  if (totalPoints < 100) return 1;
-  if (totalPoints < 300) return 2;
-  if (totalPoints < 600) return 3;
-  if (totalPoints < 1000) return 4;
-  if (totalPoints < 1500) return 5;
-  if (totalPoints < 2100) return 6;
-  if (totalPoints < 2800) return 7;
-  if (totalPoints < 3600) return 8;
-  if (totalPoints < 4500) return 9;
-  return 10;
+  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (totalPoints >= LEVEL_THRESHOLDS[i]) return i + 1;
+  }
+  return 1;
 }
 
-/**
- * Check and award achievements
- */
-async function checkAchievements(childId: string): Promise<string[]> {
-  const awarded: string[] = [];
-
-  // Get child's game count
-  const gameCount = await GameSession.countDocuments({ childId });
-  const child = await Child.findById(childId);
-
-  if (!child) return awarded;
-
-  // First game achievement
-  if (gameCount === 1) {
-    await awardAchievement(childId, "first-game");
-    awarded.push("first-game");
-  }
-
-  // Quick learner (10 games)
-  if (gameCount === 10) {
-    await awardAchievement(childId, "quick-learner");
-    awarded.push("quick-learner");
-  }
-
-  // Super player (50 games)
-  if (gameCount === 50) {
-    await awardAchievement(childId, "super-player");
-    awarded.push("super-player");
-  }
-
-  return awarded;
+export function getLevelThresholds() {
+  return LEVEL_THRESHOLDS;
 }
 
-/**
- * Award an achievement to a child
- */
+function getTodayString(): string {
+  return new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+}
+
+function getYesterdayString(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split("T")[0];
+}
+
 async function awardAchievement(childId: string, key: AchievementKey): Promise<boolean> {
   try {
     const definition = ACHIEVEMENT_DEFINITIONS[key];
     if (!definition) return false;
 
-    // Check if already awarded
     const existing = await Achievement.findOne({ childId, key });
     if (existing) return false;
 
-    // Create achievement
     const achievement = new Achievement({
       childId,
       ...definition,
     });
-
     await achievement.save();
 
-    // Add points to child
     await Child.findByIdAndUpdate(childId, {
       $inc: { totalPoints: definition.pointsAwarded },
     });
 
     return true;
   } catch {
-    // Ignore duplicate key errors (already awarded)
     return false;
   }
+}
+
+/**
+ * Check and award all achievements after a game session.
+ * Returns array of newly awarded achievement keys.
+ */
+async function checkAllAchievements(
+  childId: string,
+  gameKey: GameKey,
+  scorePercentage: number,
+  newLevel: number,
+  previousLevel: number,
+): Promise<string[]> {
+  const awarded: string[] = [];
+  const child = await Child.findById(childId);
+  if (!child) return awarded;
+
+  const gameCount = await GameSession.countDocuments({ childId });
+
+  // --- Milestone achievements ---
+  if (gameCount === 1 && await awardAchievement(childId, "first-game")) {
+    awarded.push("first-game");
+  }
+  if (gameCount >= 10 && await awardAchievement(childId, "quick-learner")) {
+    awarded.push("quick-learner");
+  }
+  if (gameCount >= 50 && await awardAchievement(childId, "super-player")) {
+    awarded.push("super-player");
+  }
+
+  // --- Perfect score ---
+  if (scorePercentage >= 1 && await awardAchievement(childId, "perfect-score")) {
+    awarded.push("perfect-score");
+  }
+
+  // --- Level up ---
+  if (newLevel > previousLevel && await awardAchievement(childId, "level-up")) {
+    awarded.push("level-up");
+  }
+
+  // --- Game-specific high score achievements (90%+) ---
+  if (scorePercentage >= 0.9) {
+    if (gameKey === "memory-match" && await awardAchievement(childId, "memory-master")) {
+      awarded.push("memory-master");
+    }
+    if (gameKey === "math-adventure" && await awardAchievement(childId, "math-wizard")) {
+      awarded.push("math-wizard");
+    }
+    if (gameKey === "emotion-cards" && await awardAchievement(childId, "emotion-expert")) {
+      awarded.push("emotion-expert");
+    }
+  }
+
+  // --- Week streak (7+ days) ---
+  if (child.currentStreak >= 7 && await awardAchievement(childId, "week-streak")) {
+    awarded.push("week-streak");
+  }
+
+  return awarded;
+}
+
+/**
+ * Update the child's play streak. Call BEFORE saving points/level.
+ * Returns the updated streak values.
+ */
+async function updateStreak(childId: string): Promise<{ currentStreak: number; bestStreak: number }> {
+  const child = await Child.findById(childId);
+  if (!child) return { currentStreak: 0, bestStreak: 0 };
+
+  const today = getTodayString();
+  const yesterday = getYesterdayString();
+
+  let newStreak = child.currentStreak || 0;
+
+  if (child.lastPlayedDate === today) {
+    // Already played today, streak unchanged
+    return { currentStreak: newStreak, bestStreak: child.bestStreak || newStreak };
+  } else if (child.lastPlayedDate === yesterday) {
+    // Consecutive day - extend streak
+    newStreak += 1;
+  } else {
+    // Streak broken (or first play ever)
+    newStreak = 1;
+  }
+
+  const bestStreak = Math.max(child.bestStreak || 0, newStreak);
+
+  await Child.findByIdAndUpdate(childId, {
+    currentStreak: newStreak,
+    bestStreak,
+    lastPlayedDate: today,
+  });
+
+  return { currentStreak: newStreak, bestStreak };
 }
 
 /**
@@ -102,14 +162,12 @@ export async function saveGameSession(req: Request, res: Response): Promise<void
   try {
     const data = saveGameSessionSchema.parse(req.body);
 
-    // Verify child exists
     const child = await Child.findById(data.childId);
     if (!child) {
       res.status(404).json({ error: "Child not found" });
       return;
     }
 
-    // Create game session
     const session = new GameSession({
       childId: data.childId,
       gameKey: data.gameKey,
@@ -121,20 +179,16 @@ export async function saveGameSession(req: Request, res: Response): Promise<void
       totalQuestions: data.totalQuestions,
       emotionDuringGame: data.emotionDuringGame,
     });
-
     await session.save();
 
-    // Calculate points earned
+    // Update streak first
+    const streakResult = await updateStreak(data.childId);
+
+    // Calculate points
     const scorePercentage = data.maxScore > 0 ? data.score / data.maxScore : 0;
-    const multiplier = POINTS_MULTIPLIER[data.difficulty];
+    const multiplier = POINTS_MULTIPLIER[data.difficulty] || 1;
     const pointsEarned = Math.round(scorePercentage * 10 * multiplier);
 
-    // Check for perfect score achievement
-    if (scorePercentage === 1) {
-      await awardAchievement(data.childId, "perfect-score");
-    }
-
-    // Update child's total points and level
     const previousLevel = child.level;
     const newTotalPoints = child.totalPoints + pointsEarned;
     const newLevel = calculateLevel(newTotalPoints);
@@ -144,13 +198,51 @@ export async function saveGameSession(req: Request, res: Response): Promise<void
       level: newLevel,
     });
 
-    // Check for level up achievement
-    if (newLevel > previousLevel) {
-      await awardAchievement(data.childId, "level-up");
+    // Check ALL achievements
+    const newAchievements = await checkAllAchievements(
+      data.childId,
+      data.gameKey,
+      scorePercentage,
+      newLevel,
+      previousLevel,
+    );
+
+    // Compute final totalPoints after achievement bonuses
+    const updatedChild = await Child.findById(data.childId);
+    const finalTotalPoints = updatedChild?.totalPoints ?? newTotalPoints;
+    const finalLevel = calculateLevel(finalTotalPoints);
+    if (updatedChild && finalLevel !== updatedChild.level) {
+      await Child.findByIdAndUpdate(data.childId, { level: finalLevel });
     }
 
-    // Check other achievements
-    const newAchievements = await checkAchievements(data.childId);
+    // Fetch full details of newly awarded achievements for the response
+    const awardedDetails = newAchievements.length > 0
+      ? await Achievement.find({ childId: data.childId, key: { $in: newAchievements } })
+          .select("key name icon pointsAwarded")
+          .lean()
+      : [];
+
+    // Generate post-game recommendation
+    let postGameRecommendation = null;
+    try {
+      const accuracy = data.totalQuestions > 0 ? data.correctAnswers / data.totalQuestions : 0;
+      postGameRecommendation = await generatePostGameRecommendation(
+        {
+          name: child.name,
+          age: child.age,
+          level: finalLevel,
+          totalPoints: finalTotalPoints,
+          language: child.language || "ru",
+        },
+        data.gameKey,
+        data.score,
+        data.maxScore,
+        accuracy,
+        data.difficulty || "easy",
+      );
+    } catch (error) {
+      console.error("Post-game recommendation generation error:", error);
+    }
 
     res.status(201).json({
       message: "Game session saved",
@@ -163,10 +255,18 @@ export async function saveGameSession(req: Request, res: Response): Promise<void
         difficulty: session.difficulty,
       },
       pointsEarned,
-      newTotalPoints,
-      newLevel,
-      leveledUp: newLevel > previousLevel,
+      newTotalPoints: finalTotalPoints,
+      newLevel: finalLevel,
+      leveledUp: finalLevel > previousLevel,
       newAchievements,
+      newAchievementDetails: awardedDetails.map((a) => ({
+        key: a.key,
+        name: a.name,
+        icon: a.icon,
+        pointsAwarded: a.pointsAwarded,
+      })),
+      streak: streakResult,
+      recommendation: postGameRecommendation,
     });
   } catch (error) {
     if (error instanceof ZodError) {
@@ -241,6 +341,13 @@ export async function getAchievements(req: Request, res: Response): Promise<void
         icon: a.icon,
         pointsAwarded: a.pointsAwarded,
         unlockedAt: a.unlockedAt,
+      })),
+      allDefinitions: Object.values(ACHIEVEMENT_DEFINITIONS).map((d) => ({
+        key: d.key,
+        name: d.name,
+        description: d.description,
+        icon: d.icon,
+        pointsAwarded: d.pointsAwarded,
       })),
     });
   } catch (error) {

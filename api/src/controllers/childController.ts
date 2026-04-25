@@ -1,8 +1,25 @@
 // api/src/controllers/childController.ts
 import { Request, Response } from "express";
 import { Child } from "../models/index.js";
+import type { IChild } from "../models/Child.js";
 import { createChildSchema, updateChildSchema } from "../utils/validation.js";
 import { ZodError } from "zod";
+
+function serializeChild(child: IChild) {
+  return {
+    id: child._id,
+    name: child.name,
+    age: child.age,
+    avatar: child.avatar,
+    language: child.language,
+    totalPoints: child.totalPoints,
+    level: child.level,
+    currentStreak: child.currentStreak || 0,
+    bestStreak: child.bestStreak || 0,
+    lastPlayedDate: child.lastPlayedDate || null,
+    createdAt: child.createdAt,
+  };
+}
 
 /**
  * Create a new child profile
@@ -30,16 +47,7 @@ export async function createChild(req: Request, res: Response): Promise<void> {
 
     res.status(201).json({
       message: "Child profile created",
-      child: {
-        id: child._id,
-        name: child.name,
-        age: child.age,
-        avatar: child.avatar,
-        language: child.language,
-        totalPoints: child.totalPoints,
-        level: child.level,
-        createdAt: child.createdAt,
-      },
+      child: serializeChild(child),
     });
   } catch (error) {
     if (error instanceof ZodError) {
@@ -68,16 +76,7 @@ export async function getChildren(req: Request, res: Response): Promise<void> {
       .sort({ createdAt: -1 });
 
     res.json({
-      children: children.map((child) => ({
-        id: child._id,
-        name: child.name,
-        age: child.age,
-        avatar: child.avatar,
-        language: child.language,
-        totalPoints: child.totalPoints,
-        level: child.level,
-        createdAt: child.createdAt,
-      })),
+      children: children.map(serializeChild),
     });
   } catch (error) {
     console.error("Get children error:", error);
@@ -106,18 +105,7 @@ export async function getChild(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    res.json({
-      child: {
-        id: child._id,
-        name: child.name,
-        age: child.age,
-        avatar: child.avatar,
-        language: child.language,
-        totalPoints: child.totalPoints,
-        level: child.level,
-        createdAt: child.createdAt,
-      },
-    });
+    res.json({ child: serializeChild(child) });
   } catch (error) {
     console.error("Get child error:", error);
     res.status(500).json({ error: "Failed to get child" });
@@ -150,15 +138,7 @@ export async function updateChild(req: Request, res: Response): Promise<void> {
 
     res.json({
       message: "Child profile updated",
-      child: {
-        id: child._id,
-        name: child.name,
-        age: child.age,
-        avatar: child.avatar,
-        language: child.language,
-        totalPoints: child.totalPoints,
-        level: child.level,
-      },
+      child: serializeChild(child),
     });
   } catch (error) {
     if (error instanceof ZodError) {
@@ -219,41 +199,17 @@ export async function verifyChildPin(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // If no PIN is set, allow access
     if (!child.pin) {
-      res.json({
-        valid: true,
-        child: {
-          id: child._id,
-          name: child.name,
-          age: child.age,
-          avatar: child.avatar,
-          language: child.language,
-          totalPoints: child.totalPoints,
-          level: child.level,
-        },
-      });
+      res.json({ valid: true, child: serializeChild(child) });
       return;
     }
 
-    // Verify PIN
     if (child.pin !== pin) {
       res.status(401).json({ error: "Invalid PIN", valid: false });
       return;
     }
 
-    res.json({
-      valid: true,
-      child: {
-        id: child._id,
-        name: child.name,
-        age: child.age,
-        avatar: child.avatar,
-        language: child.language,
-        totalPoints: child.totalPoints,
-        level: child.level,
-      },
-    });
+    res.json({ valid: true, child: serializeChild(child) });
   } catch (error) {
     console.error("Verify PIN error:", error);
     res.status(500).json({ error: "Failed to verify PIN" });

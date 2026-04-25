@@ -4,4 +4,5 @@ export * from "./childController.js";
 export * from "./gameController.js";
 export * from "./analyticsController.js";
 export * from "./emotionController.js";
+export * from "./aiFriendController.js";
 

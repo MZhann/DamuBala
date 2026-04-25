@@ -1,8 +1,9 @@
 // api/src/controllers/analyticsController.ts
 import { Request, Response } from "express";
-import { GameSession, EmotionRecord, Child, Achievement } from "../models/index.js";
+import { GameSession, EmotionRecord, Child, Achievement, AIFriendMessage } from "../models/index.js";
 import type { GameKey } from "../models/GameSession.js";
 import type { EmotionType } from "../models/EmotionRecord.js";
+import { generateRecommendations, generateWeeklyReport } from "../services/aiRecommendationService.js";
 
 interface GameStats {
   gameKey: GameKey;
@@ -219,127 +220,216 @@ export async function getRecommendations(req: Request, res: Response): Promise<v
     const sessions = await GameSession.find({
       childId,
       createdAt: { $gte: startDate },
-    });
+    }).sort({ createdAt: -1 });
 
     const emotions = await EmotionRecord.find({
       childId,
       timestamp: { $gte: startDate },
-    });
+    }).sort({ timestamp: -1 });
 
-    const recommendations: Array<{
-      type: "skill" | "emotional" | "engagement" | "general";
-      priority: "high" | "medium" | "low";
-      title: string;
-      description: string;
-    }> = [];
+    const achievements = await Achievement.find({ childId })
+      .sort({ unlockedAt: -1 })
+      .limit(10);
 
-    // Analyze game performance
-    if (sessions.length === 0) {
-      recommendations.push({
-        type: "engagement",
-        priority: "high",
-        title: "Начните играть!",
-        description: "Ваш ребенок еще не играл в игры. Попробуйте начать с простых игр на память.",
-      });
-    } else {
-      // Calculate performance by game
-      const gamePerformance = new Map<string, { accuracy: number; count: number }>();
-      
-      for (const session of sessions) {
-        const accuracy = session.totalQuestions > 0 
-          ? session.correctAnswers / session.totalQuestions 
-          : 0;
-        const existing = gamePerformance.get(session.gameKey) || { accuracy: 0, count: 0 };
-        existing.accuracy = (existing.accuracy * existing.count + accuracy) / (existing.count + 1);
-        existing.count += 1;
-        gamePerformance.set(session.gameKey, existing);
-      }
+    // Prepare data for AI service
+    const gameSessionsData = sessions.map((s) => ({
+      gameKey: s.gameKey,
+      score: s.score,
+      maxScore: s.maxScore,
+      accuracy: s.totalQuestions > 0 ? s.correctAnswers / s.totalQuestions : 0,
+      duration: s.duration,
+      difficulty: s.difficulty,
+      completedAt: s.completedAt,
+    }));
 
-      // Find weak areas
-      for (const [gameKey, stats] of gamePerformance) {
-        if (stats.accuracy < 0.5 && stats.count >= 3) {
-          const gameNames: Record<string, string> = {
-            "memory-match": "Игра на память",
-            "pattern-sequence": "Узоры и последовательности",
-            "math-adventure": "Математика",
-            "word-builder": "Слова и буквы",
-            "emotion-cards": "Эмоции",
-            "puzzle-solve": "Головоломки",
-          };
-          
-          recommendations.push({
-            type: "skill",
-            priority: "high",
-            title: `Улучшите навыки: ${gameNames[gameKey] || gameKey}`,
-            description: `Ребенок показывает результат ${Math.round(stats.accuracy * 100)}% в этой игре. Рекомендуем больше практики на легком уровне сложности.`,
-          });
-        }
-      }
+    const emotionsData = emotions.map((e) => ({
+      emotion: e.emotion,
+      intensity: e.intensity,
+      context: e.context,
+      timestamp: e.timestamp,
+    }));
 
-      // Check for games not played
-      const allGames = ["memory-match", "pattern-sequence", "math-adventure", "word-builder", "emotion-cards", "puzzle-solve"];
-      const playedGames = new Set(gamePerformance.keys());
-      const unplayedGames = allGames.filter(g => !playedGames.has(g));
-      
-      if (unplayedGames.length > 0) {
-        recommendations.push({
-          type: "engagement",
-          priority: "medium",
-          title: "Попробуйте новые игры",
-          description: `Есть ${unplayedGames.length} игр, которые ребенок еще не пробовал. Разнообразие помогает развитию!`,
-        });
-      }
-    }
+    const achievementNames = achievements.map((a) => a.name);
 
-    // Analyze emotions
-    if (emotions.length > 0) {
-      const emotionCounts = new Map<string, number>();
-      for (const e of emotions) {
-        emotionCounts.set(e.emotion, (emotionCounts.get(e.emotion) || 0) + 1);
-      }
-
-      const negativeEmotions = (emotionCounts.get("sad") || 0) + 
-                               (emotionCounts.get("angry") || 0) + 
-                               (emotionCounts.get("fearful") || 0);
-      const totalEmotions = emotions.length;
-
-      if (negativeEmotions / totalEmotions > 0.3) {
-        recommendations.push({
-          type: "emotional",
-          priority: "high",
-          title: "Обратите внимание на эмоциональное состояние",
-          description: "Замечено много негативных эмоций во время игр. Попробуйте поговорить с ребенком и выбрать более спокойные игры.",
-        });
-      }
-
-      if ((emotionCounts.get("happy") || 0) / totalEmotions > 0.5) {
-        recommendations.push({
-          type: "emotional",
-          priority: "low",
-          title: "Отличное настроение!",
-          description: "Ребенок часто радуется во время игр. Продолжайте в том же духе!",
-        });
-      }
-    }
-
-    // General recommendations based on level
-    if (child.level >= 3 && child.level < 5) {
-      recommendations.push({
-        type: "general",
-        priority: "medium",
-        title: "Время для нового уровня сложности",
-        description: "Ребенок хорошо прогрессирует! Попробуйте игры на среднем уровне сложности.",
-      });
-    }
+    // Generate AI recommendations
+    const recommendations = await generateRecommendations(
+      {
+        name: child.name,
+        age: child.age,
+        level: child.level,
+        totalPoints: child.totalPoints,
+        language: child.language || "ru",
+      },
+      gameSessionsData,
+      emotionsData,
+      achievementNames,
+    );
 
     res.json({
       childId,
-      recommendations: recommendations.slice(0, 5), // Limit to 5 recommendations
+      recommendations: recommendations.slice(0, 5),
       generatedAt: new Date(),
     });
   } catch (error) {
     console.error("Get recommendations error:", error);
     res.status(500).json({ error: "Failed to get recommendations" });
+  }
+}
+
+/**
+ * Get AI-generated weekly report for a child
+ * GET /api/analytics/weekly-report/:childId
+ */
+export async function getWeeklyReport(req: Request, res: Response): Promise<void> {
+  try {
+    const { childId } = req.params;
+
+    const child = await Child.findById(childId);
+    if (!child) {
+      res.status(404).json({ error: "Child not found" });
+      return;
+    }
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 7);
+
+    const [sessions, emotions, achievements, chatMessages] = await Promise.all([
+      GameSession.find({ childId, createdAt: { $gte: startDate } }).sort({ createdAt: -1 }),
+      EmotionRecord.find({ childId, timestamp: { $gte: startDate } }).sort({ timestamp: -1 }),
+      Achievement.find({ childId, unlockedAt: { $gte: startDate } }),
+      AIFriendMessage.find({ childId, timestamp: { $gte: startDate } }),
+    ]);
+
+    const gameSessionsData = sessions.map((s) => ({
+      gameKey: s.gameKey,
+      score: s.score,
+      maxScore: s.maxScore,
+      accuracy: s.totalQuestions > 0 ? s.correctAnswers / s.totalQuestions : 0,
+      duration: s.duration,
+      difficulty: s.difficulty,
+      completedAt: s.completedAt,
+    }));
+
+    const emotionsData = emotions.map((e) => ({
+      emotion: e.emotion,
+      intensity: e.intensity,
+      context: e.context,
+      timestamp: e.timestamp,
+    }));
+
+    const childMessages = chatMessages.filter((m) => m.role === "child");
+    const chatTopics = childMessages
+      .slice(0, 10)
+      .map((m) => m.content.substring(0, 50));
+
+    const report = await generateWeeklyReport(
+      {
+        name: child.name,
+        age: child.age,
+        level: child.level,
+        totalPoints: child.totalPoints,
+        language: child.language || "ru",
+      },
+      gameSessionsData,
+      emotionsData,
+      achievements.map((a) => a.name),
+      chatMessages.length,
+      chatTopics,
+    );
+
+    res.json({
+      childId,
+      report,
+      period: { startDate, endDate: new Date() },
+      generatedAt: new Date(),
+    });
+  } catch (error) {
+    console.error("Get weekly report error:", error);
+    res.status(500).json({ error: "Failed to generate weekly report" });
+  }
+}
+
+/**
+ * Get chat analytics for a child
+ * GET /api/analytics/chat-stats/:childId
+ */
+export async function getChatAnalytics(req: Request, res: Response): Promise<void> {
+  try {
+    const { childId } = req.params;
+    const { days = "30" } = req.query;
+
+    const child = await Child.findById(childId);
+    if (!child) {
+      res.status(404).json({ error: "Child not found" });
+      return;
+    }
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - Number(days));
+
+    const messages = await AIFriendMessage.find({
+      childId,
+      timestamp: { $gte: startDate },
+    }).sort({ timestamp: 1 });
+
+    const totalMessages = messages.length;
+    const childMessages = messages.filter((m) => m.role === "child").length;
+    const aiMessages = messages.filter((m) => m.role === "ai").length;
+
+    // Daily message counts
+    const dailyMessages = await AIFriendMessage.aggregate([
+      {
+        $match: {
+          childId: child._id,
+          timestamp: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
+            role: "$role",
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.date": 1 } },
+    ]);
+
+    const dailyChatActivity: { date: string; childMessages: number; aiMessages: number }[] = [];
+    const dateMap = new Map<string, { childMessages: number; aiMessages: number }>();
+
+    for (const entry of dailyMessages) {
+      const date = entry._id.date;
+      const existing = dateMap.get(date) || { childMessages: 0, aiMessages: 0 };
+      if (entry._id.role === "child") existing.childMessages = entry.count;
+      else existing.aiMessages = entry.count;
+      dateMap.set(date, existing);
+    }
+
+    for (const [date, counts] of dateMap) {
+      dailyChatActivity.push({ date, ...counts });
+    }
+    dailyChatActivity.sort((a, b) => a.date.localeCompare(b.date));
+
+    // Average message length
+    const childMsgs = messages.filter((m) => m.role === "child");
+    const avgMessageLength = childMsgs.length > 0
+      ? Math.round(childMsgs.reduce((sum, m) => sum + m.content.length, 0) / childMsgs.length)
+      : 0;
+
+    res.json({
+      childId,
+      totalMessages,
+      childMessages,
+      aiMessages,
+      avgMessageLength,
+      dailyChatActivity,
+      activeDays: dateMap.size,
+    });
+  } catch (error) {
+    console.error("Get chat analytics error:", error);
+    res.status(500).json({ error: "Failed to get chat analytics" });
   }
 }
 

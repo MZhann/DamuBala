@@ -52,7 +52,9 @@ export async function register(req: Request, res: Response): Promise<void> {
   } catch (error) {
     if (error instanceof ZodError) {
       const firstIssue = error.issues[0];
-      res.status(400).json({ error: firstIssue?.message || "Validation error" });
+      res
+        .status(400)
+        .json({ error: firstIssue?.message || "Validation error" });
       return;
     }
     console.error("Registration error:", error);
@@ -103,7 +105,9 @@ export async function login(req: Request, res: Response): Promise<void> {
   } catch (error) {
     if (error instanceof ZodError) {
       const firstIssue = error.issues[0];
-      res.status(400).json({ error: firstIssue?.message || "Validation error" });
+      res
+        .status(400)
+        .json({ error: firstIssue?.message || "Validation error" });
       return;
     }
     console.error("Login error:", error);

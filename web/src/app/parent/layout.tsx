@@ -56,6 +56,9 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
             <Link href="/parent/analytics" className="text-sm font-medium hover:text-primary transition-colors">
               Аналитика
             </Link>
+            <Link href="/parent/settings" className="text-sm font-medium hover:text-primary transition-colors">
+              Настройки
+            </Link>
           </nav>
 
           <div className="flex items-center gap-4">

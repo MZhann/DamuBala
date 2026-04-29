@@ -96,7 +96,7 @@ export default function ChildrenPage() {
                         <span className="text-sm text-muted-foreground">
                           {child.language === "kz" ? "🇰🇿" : "🇷🇺"}
                         </span>
-                        {child.pin && (
+                        {child.hasPin && (
                           <span className="text-sm">🔒</span>
                         )}
                       </div>

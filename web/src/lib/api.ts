@@ -24,7 +24,9 @@ import type {
   SendAIFriendMessageResponse,
 } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://damubala-production.up.railway.app";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://damubala-production.up.railway.app";
 
 class ApiClient {
   private token: string | null = null;
@@ -50,7 +52,7 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const token = this.getToken();
     const headers: HeadersInit = {
@@ -109,14 +111,19 @@ class ApiClient {
     return this.request<{ child: Child }>(`/children/${id}`);
   }
 
-  async createChild(input: CreateChildInput): Promise<{ message: string; child: Child }> {
+  async createChild(
+    input: CreateChildInput,
+  ): Promise<{ message: string; child: Child }> {
     return this.request<{ message: string; child: Child }>("/children", {
       method: "POST",
       body: JSON.stringify(input),
     });
   }
 
-  async updateChild(id: string, input: UpdateChildInput): Promise<{ message: string; child: Child }> {
+  async updateChild(
+    id: string,
+    input: UpdateChildInput,
+  ): Promise<{ message: string; child: Child }> {
     return this.request<{ message: string; child: Child }>(`/children/${id}`, {
       method: "PATCH",
       body: JSON.stringify(input),
@@ -129,15 +136,23 @@ class ApiClient {
     });
   }
 
-  async verifyChildPin(id: string, pin: string): Promise<{ valid: boolean; child: Child }> {
-    return this.request<{ valid: boolean; child: Child }>(`/children/${id}/verify-pin`, {
-      method: "POST",
-      body: JSON.stringify({ pin }),
-    });
+  async verifyChildPin(
+    id: string,
+    pin: string,
+  ): Promise<{ valid: boolean; child: Child }> {
+    return this.request<{ valid: boolean; child: Child }>(
+      `/children/${id}/verify-pin`,
+      {
+        method: "POST",
+        body: JSON.stringify({ pin }),
+      },
+    );
   }
 
   // Game endpoints
-  async saveGameSession(input: SaveGameSessionInput): Promise<GameSessionResponse> {
+  async saveGameSession(
+    input: SaveGameSessionInput,
+  ): Promise<GameSessionResponse> {
     return this.request<GameSessionResponse>("/games/sessions", {
       method: "POST",
       body: JSON.stringify(input),
@@ -146,21 +161,29 @@ class ApiClient {
 
   async getGameSessions(
     childId: string,
-    options?: { limit?: number; offset?: number; gameKey?: string }
+    options?: { limit?: number; offset?: number; gameKey?: string },
   ): Promise<{ sessions: GameSession[]; total: number }> {
     const params = new URLSearchParams();
     if (options?.limit) params.set("limit", options.limit.toString());
     if (options?.offset) params.set("offset", options.offset.toString());
     if (options?.gameKey) params.set("gameKey", options.gameKey);
-    
+
     const query = params.toString() ? `?${params.toString()}` : "";
     return this.request<{ sessions: GameSession[]; total: number }>(
-      `/games/sessions/${childId}${query}`
+      `/games/sessions/${childId}${query}`,
     );
   }
 
-  async getAchievements(childId: string): Promise<{ achievements: Achievement[]; allDefinitions: AchievementDefinition[] }> {
-    return this.request<{ achievements: Achievement[]; allDefinitions: AchievementDefinition[] }>(`/games/achievements/${childId}`);
+  async getAchievements(
+    childId: string,
+  ): Promise<{
+    achievements: Achievement[];
+    allDefinitions: AchievementDefinition[];
+  }> {
+    return this.request<{
+      achievements: Achievement[];
+      allDefinitions: AchievementDefinition[];
+    }>(`/games/achievements/${childId}`);
   }
 
   // Emotion endpoints
@@ -171,79 +194,103 @@ class ApiClient {
     context?: string;
     gameSessionId?: string;
   }): Promise<{ message: string; emotion: EmotionRecord }> {
-    return this.request<{ message: string; emotion: EmotionRecord }>("/emotions", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+    return this.request<{ message: string; emotion: EmotionRecord }>(
+      "/emotions",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    );
   }
 
   async getEmotions(
     childId: string,
-    options?: { limit?: number; offset?: number; days?: number }
+    options?: { limit?: number; offset?: number; days?: number },
   ): Promise<{ emotions: EmotionRecord[]; total: number }> {
     const params = new URLSearchParams();
     if (options?.limit) params.set("limit", options.limit.toString());
     if (options?.offset) params.set("offset", options.offset.toString());
     if (options?.days) params.set("days", options.days.toString());
-    
+
     const query = params.toString() ? `?${params.toString()}` : "";
     return this.request<{ emotions: EmotionRecord[]; total: number }>(
-      `/emotions/${childId}${query}`
+      `/emotions/${childId}${query}`,
     );
   }
 
   // Analytics endpoints
-  async getAnalyticsSummary(childId: string, days?: number): Promise<AnalyticsSummary> {
+  async getAnalyticsSummary(
+    childId: string,
+    days?: number,
+  ): Promise<AnalyticsSummary> {
     const query = days ? `?days=${days}` : "";
-    return this.request<AnalyticsSummary>(`/analytics/summary/${childId}${query}`);
+    return this.request<AnalyticsSummary>(
+      `/analytics/summary/${childId}${query}`,
+    );
   }
 
-  async getRecommendations(childId: string): Promise<{ recommendations: Recommendation[] }> {
+  async getRecommendations(
+    childId: string,
+  ): Promise<{ recommendations: Recommendation[] }> {
     return this.request<{ recommendations: Recommendation[] }>(
-      `/analytics/recommendations/${childId}`
+      `/analytics/recommendations/${childId}`,
     );
   }
 
   async getWeeklyReport(childId: string): Promise<WeeklyReportResponse> {
-    return this.request<WeeklyReportResponse>(`/analytics/weekly-report/${childId}`);
+    return this.request<WeeklyReportResponse>(
+      `/analytics/weekly-report/${childId}`,
+    );
   }
 
-  async getChatAnalytics(childId: string, days?: number): Promise<ChatAnalytics> {
+  async getChatAnalytics(
+    childId: string,
+    days?: number,
+  ): Promise<ChatAnalytics> {
     const query = days ? `?days=${days}` : "";
-    return this.request<ChatAnalytics>(`/analytics/chat-stats/${childId}${query}`);
+    return this.request<ChatAnalytics>(
+      `/analytics/chat-stats/${childId}${query}`,
+    );
   }
 
   // AI Friend endpoints
-  async getAIFriendSettings(childId: string): Promise<{ settings: AIFriendSettings }> {
-    return this.request<{ settings: AIFriendSettings }>(`/ai-friend/settings/${childId}`);
+  async getAIFriendSettings(
+    childId: string,
+  ): Promise<{ settings: AIFriendSettings }> {
+    return this.request<{ settings: AIFriendSettings }>(
+      `/ai-friend/settings/${childId}`,
+    );
   }
 
   async updateAIFriendSettings(
     childId: string,
-    input: UpdateAIFriendSettingsInput
+    input: UpdateAIFriendSettingsInput,
   ): Promise<{ message: string; settings: AIFriendSettings }> {
     return this.request<{ message: string; settings: AIFriendSettings }>(
       `/ai-friend/settings/${childId}`,
       {
         method: "PUT",
         body: JSON.stringify(input),
-      }
+      },
     );
   }
 
   async sendAIFriendMessage(
     childId: string,
-    input: SendAIFriendMessageInput
+    input: SendAIFriendMessageInput,
   ): Promise<SendAIFriendMessageResponse> {
-    return this.request<SendAIFriendMessageResponse>(`/ai-friend/chat/${childId}`, {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+    return this.request<SendAIFriendMessageResponse>(
+      `/ai-friend/chat/${childId}`,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    );
   }
 
   async getAIFriendChatHistory(
     childId: string,
-    options?: { limit?: number; offset?: number }
+    options?: { limit?: number; offset?: number },
   ): Promise<{ messages: AIFriendMessage[]; total: number }> {
     const params = new URLSearchParams();
     if (options?.limit) params.set("limit", options.limit.toString());
@@ -251,10 +298,9 @@ class ApiClient {
 
     const query = params.toString() ? `?${params.toString()}` : "";
     return this.request<{ messages: AIFriendMessage[]; total: number }>(
-      `/ai-friend/chat/${childId}/history${query}`
+      `/ai-friend/chat/${childId}/history${query}`,
     );
   }
 }
 
 export const api = new ApiClient();
-

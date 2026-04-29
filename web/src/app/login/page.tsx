@@ -1,21 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // If the user is already authenticated, send them straight to the dashboard
+  // instead of forcing a re-login. Without this, navigating "back" from /child
+  // appears to log the parent out even though their session is still valid.
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace("/parent/dashboard");
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +47,14 @@ export default function LoginPage() {
     }
   };
 
+  if (authLoading || isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center gradient-fun">
+        <div className="text-4xl animate-bounce-gentle">🎈</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen gradient-fun flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -39,13 +62,17 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2">
             <span className="text-5xl">🌟</span>
-            <span className="font-display text-4xl font-bold text-primary">DamuBala</span>
+            <span className="font-display text-4xl font-bold text-primary">
+              DamuBala
+            </span>
           </Link>
         </div>
 
         <Card className="shadow-xl rounded-3xl border-0">
           <CardHeader className="text-center pb-2">
-            <CardTitle className="font-display text-2xl">Добро пожаловать!</CardTitle>
+            <CardTitle className="font-display text-2xl">
+              Добро пожаловать!
+            </CardTitle>
             <CardDescription>Войдите в родительский кабинет</CardDescription>
           </CardHeader>
           <CardContent>
@@ -55,7 +82,7 @@ export default function LoginPage() {
                   {error}
                 </div>
               )}
-              
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -93,13 +120,19 @@ export default function LoginPage() {
 
             <div className="mt-6 text-center text-sm text-muted-foreground">
               Нет аккаунта?{" "}
-              <Link href="/register" className="text-primary font-semibold hover:underline">
+              <Link
+                href="/register"
+                className="text-primary font-semibold hover:underline"
+              >
                 Зарегистрироваться
               </Link>
             </div>
 
             <div className="mt-4 text-center">
-              <Link href="/child" className="text-sm text-muted-foreground hover:text-primary">
+              <Link
+                href="/child"
+                className="text-sm text-muted-foreground hover:text-primary"
+              >
                 🎮 Перейти в режим ребенка
               </Link>
             </div>

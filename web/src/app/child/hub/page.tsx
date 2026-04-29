@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useChild } from "@/lib/child-context";
+import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { getLevelProgress } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ const games = [
 export default function ChildHubPage() {
   const router = useRouter();
   const { currentChild, clearChild, isHydrated } = useChild();
+  const { isAuthenticated } = useAuth();
   const [aiFriendEnabled, setAiFriendEnabled] = useState(false);
   const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[]>([]);
   const [allDefinitions, setAllDefinitions] = useState<AchievementDefinition[]>([]);
@@ -114,16 +116,30 @@ export default function ChildHubPage() {
             </div>
           </div>
           
-          <Button
-            variant="outline"
-            className="rounded-xl"
-            onClick={() => {
-              clearChild();
-              router.push("/child");
-            }}
-          >
-            👋 Выйти
-          </Button>
+          <div className="flex items-center gap-2">
+            {isAuthenticated && (
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={() => {
+                  clearChild();
+                  router.push("/parent/dashboard");
+                }}
+              >
+                👨‍👩‍👧 К родителю
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => {
+                clearChild();
+                router.push("/child");
+              }}
+            >
+              👋 Выйти
+            </Button>
+          </div>
         </header>
 
         {/* Level Progress */}

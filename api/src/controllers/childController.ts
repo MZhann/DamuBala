@@ -12,6 +12,7 @@ function serializeChild(child: IChild) {
     age: child.age,
     avatar: child.avatar,
     language: child.language,
+    hasPin: Boolean(child.pin && child.pin.length > 0),
     totalPoints: child.totalPoints,
     level: child.level,
     currentStreak: child.currentStreak || 0,
@@ -71,9 +72,9 @@ export async function getChildren(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const children = await Child.find({ parentId: req.user.userId })
-      .select("-pin")
-      .sort({ createdAt: -1 });
+    const children = await Child.find({ parentId: req.user.userId }).sort({
+      createdAt: -1,
+    });
 
     res.json({
       children: children.map(serializeChild),
@@ -98,7 +99,7 @@ export async function getChild(req: Request, res: Response): Promise<void> {
     const child = await Child.findOne({
       _id: req.params.id,
       parentId: req.user.userId,
-    }).select("-pin");
+    });
 
     if (!child) {
       res.status(404).json({ error: "Child not found" });
@@ -125,11 +126,31 @@ export async function updateChild(req: Request, res: Response): Promise<void> {
 
     const data = updateChildSchema.parse(req.body);
 
+    // Build update operation, treating empty pin as a removal request
+    const setFields: Record<string, unknown> = {};
+    const unsetFields: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(data)) {
+      if (key === "pin") {
+        if (value === "" || value === null) {
+          unsetFields.pin = "";
+        } else if (typeof value === "string" && value.length > 0) {
+          setFields.pin = value;
+        }
+      } else if (value !== undefined) {
+        setFields[key] = value;
+      }
+    }
+
+    const updateOp: Record<string, unknown> = {};
+    if (Object.keys(setFields).length > 0) updateOp.$set = setFields;
+    if (Object.keys(unsetFields).length > 0) updateOp.$unset = unsetFields;
+
     const child = await Child.findOneAndUpdate(
       { _id: req.params.id, parentId: req.user.userId },
-      { $set: data },
-      { new: true }
-    ).select("-pin");
+      updateOp,
+      { new: true },
+    );
 
     if (!child) {
       res.status(404).json({ error: "Child not found" });

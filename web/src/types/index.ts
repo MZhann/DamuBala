@@ -16,7 +16,11 @@ export interface Child {
   age: number;
   avatar: string;
   language: "kz" | "ru";
-  pin?: string;
+  /**
+   * Whether this child profile has a PIN set. The actual PIN value is never
+   * sent to the client. Use `api.verifyChildPin` to validate.
+   */
+  hasPin?: boolean;
   totalPoints: number;
   level: number;
   currentStreak?: number;
@@ -58,7 +62,11 @@ export interface UpdateChildInput {
   age?: number;
   avatar?: string;
   language?: "kz" | "ru";
-  pin?: string;
+  /**
+   * Pass a 4-digit string to set/change the PIN, or an empty string to remove
+   * the existing PIN.
+   */
+  pin?: string | null;
 }
 
 // Game types
@@ -217,7 +225,12 @@ export interface Recommendation {
 }
 
 // AI Friend types
-export type AIFriendPersonality = "friendly" | "playful" | "supportive" | "wise" | "funny";
+export type AIFriendPersonality =
+  | "friendly"
+  | "playful"
+  | "supportive"
+  | "wise"
+  | "funny";
 export type AIFriendAgeLevel = "same" | "older" | "peer";
 
 export interface AIFriendSettings {
@@ -299,4 +312,3 @@ export interface ChatAnalytics {
 export interface ApiError {
   error: string;
 }
-

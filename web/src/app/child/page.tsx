@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useChild } from "@/lib/child-context";
+import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,14 +13,15 @@ import type { Child } from "@/types";
 export default function ChildSelectionPage() {
   const router = useRouter();
   const { setCurrentChild, currentChild, isHydrated } = useChild();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [children, setChildren] = useState<Child[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedForPin, setSelectedForPin] = useState<Child | null>(null);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
 
   useEffect(() => {
-    // If a child is already selected, redirect to their game hub
     if (isHydrated && currentChild) {
       router.push("/child/hub");
     }
@@ -41,7 +43,7 @@ export default function ChildSelectionPage() {
   };
 
   const handleChildSelect = (child: Child) => {
-    if (child.pin) {
+    if (child.hasPin) {
       setSelectedForPin(child);
       setPin("");
       setPinError("");
@@ -51,14 +53,39 @@ export default function ChildSelectionPage() {
     }
   };
 
-  const handlePinSubmit = (e: React.FormEvent) => {
+  const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedForPin && pin === selectedForPin.pin) {
-      setCurrentChild(selectedForPin);
-      router.push("/child/hub");
-    } else {
+    if (!selectedForPin || pin.length !== 4 || isVerifyingPin) return;
+
+    setIsVerifyingPin(true);
+    setPinError("");
+    try {
+      const result = await api.verifyChildPin(selectedForPin.id, pin);
+      if (result.valid) {
+        // Use the freshly returned child (server is the source of truth)
+        setCurrentChild({ ...result.child, hasPin: true });
+        router.push("/child/hub");
+      } else {
+        setPinError("Неправильный PIN-код");
+        setPin("");
+      }
+    } catch {
       setPinError("Неправильный PIN-код");
       setPin("");
+    } finally {
+      setIsVerifyingPin(false);
+    }
+  };
+
+  // When the parent presses "back to parent", land them in the parent
+  // dashboard if they are still authenticated. Only fall back to the login
+  // page for genuinely unauthenticated visitors.
+  const handleBackToParent = () => {
+    if (authLoading) return;
+    if (isAuthenticated) {
+      router.push("/parent/dashboard");
+    } else {
+      router.push("/login");
     }
   };
 
@@ -85,14 +112,14 @@ export default function ChildSelectionPage() {
             <p className="text-muted-foreground mb-6">
               Введи свой секретный PIN-код
             </p>
-            
+
             <form onSubmit={handlePinSubmit} className="space-y-4">
               {pinError && (
                 <div className="bg-destructive/10 text-destructive px-4 py-2 rounded-xl text-sm">
                   {pinError}
                 </div>
               )}
-              
+
               <Input
                 type="password"
                 inputMode="numeric"
@@ -103,23 +130,25 @@ export default function ChildSelectionPage() {
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                 className="text-center text-3xl tracking-[1em] h-16 rounded-xl"
                 autoFocus
+                disabled={isVerifyingPin}
               />
-              
+
               <div className="flex gap-3">
                 <Button
                   type="button"
                   variant="outline"
                   className="flex-1 h-12 rounded-xl"
                   onClick={() => setSelectedForPin(null)}
+                  disabled={isVerifyingPin}
                 >
                   ← Назад
                 </Button>
                 <Button
                   type="submit"
                   className="flex-1 h-12 rounded-xl"
-                  disabled={pin.length !== 4}
+                  disabled={pin.length !== 4 || isVerifyingPin}
                 >
-                  Войти ✓
+                  {isVerifyingPin ? "Проверка..." : "Войти ✓"}
                 </Button>
               </div>
             </form>
@@ -157,16 +186,21 @@ export default function ChildSelectionPage() {
               <Button
                 variant="outline"
                 className="rounded-xl"
-                onClick={() => router.push("/login")}
+                onClick={handleBackToParent}
               >
-                👨‍👩‍👧 Войти как родитель
+                {isAuthenticated
+                  ? "👨‍👩‍👧 В кабинет родителя"
+                  : "👨‍👩‍👧 Войти как родитель"}
               </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6 max-w-2xl mx-auto">
             {children.map((child) => {
-              const emoji = avatarEmojis[Math.abs(child.name.charCodeAt(0)) % avatarEmojis.length];
+              const emoji =
+                avatarEmojis[
+                  Math.abs(child.name.charCodeAt(0)) % avatarEmojis.length
+                ];
               return (
                 <button
                   key={child.id}
@@ -184,9 +218,7 @@ export default function ChildSelectionPage() {
                       <p className="text-sm text-muted-foreground">
                         Уровень {child.level}
                       </p>
-                      {child.pin && (
-                        <div className="mt-2 text-xl">🔒</div>
-                      )}
+                      {child.hasPin && <div className="mt-2 text-xl">🔒</div>}
                     </CardContent>
                   </Card>
                 </button>
@@ -200,9 +232,11 @@ export default function ChildSelectionPage() {
           <Button
             variant="ghost"
             className="rounded-xl text-muted-foreground"
-            onClick={() => router.push("/login")}
+            onClick={handleBackToParent}
           >
-            👨‍👩‍👧 Войти как родитель
+            {isAuthenticated
+              ? "👨‍👩‍👧 В кабинет родителя"
+              : "👨‍👩‍👧 Войти как родитель"}
           </Button>
         </div>
       </div>

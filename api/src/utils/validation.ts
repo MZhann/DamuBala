@@ -17,24 +17,56 @@ export const loginSchema = z.object({
 // Child validation schemas
 export const createChildSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  age: z.number().int().min(4, "Age must be at least 4").max(10, "Age must be at most 10"),
+  age: z
+    .number()
+    .int()
+    .min(4, "Age must be at least 4")
+    .max(10, "Age must be at most 10"),
   avatar: z.string().optional().default("default-avatar"),
   language: z.enum(["kz", "ru"]).optional().default("ru"),
-  pin: z.string().length(4, "PIN must be 4 digits").regex(/^\d+$/, "PIN must contain only digits").optional(),
+  pin: z
+    .string()
+    .length(4, "PIN must be 4 digits")
+    .regex(/^\d+$/, "PIN must contain only digits")
+    .optional(),
 });
 
 export const updateChildSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").optional(),
-  age: z.number().int().min(4, "Age must be at least 4").max(10, "Age must be at most 10").optional(),
+  age: z
+    .number()
+    .int()
+    .min(4, "Age must be at least 4")
+    .max(10, "Age must be at most 10")
+    .optional(),
   avatar: z.string().optional(),
   language: z.enum(["kz", "ru"]).optional(),
-  pin: z.string().length(4, "PIN must be 4 digits").regex(/^\d+$/, "PIN must contain only digits").optional(),
+  // Allow empty string or null to clear the PIN; otherwise must be 4 digits.
+  pin: z
+    .union([
+      z.literal(""),
+      z.null(),
+      z
+        .string()
+        .length(4, "PIN must be 4 digits")
+        .regex(/^\d+$/, "PIN must contain only digits"),
+    ])
+    .optional(),
 });
 
 // Game session validation schemas
 export const saveGameSessionSchema = z.object({
   childId: z.string().min(1, "Child ID is required"),
-  gameKey: z.enum(["memory-match", "pattern-sequence", "math-adventure", "word-builder", "emotion-cards", "puzzle-solve", "fruit-ninja-nose", "pose-match"]),
+  gameKey: z.enum([
+    "memory-match",
+    "pattern-sequence",
+    "math-adventure",
+    "word-builder",
+    "emotion-cards",
+    "puzzle-solve",
+    "fruit-ninja-nose",
+    "pose-match",
+  ]),
   score: z.number().int().min(0),
   maxScore: z.number().int().min(0),
   duration: z.number().int().min(0),
@@ -47,7 +79,15 @@ export const saveGameSessionSchema = z.object({
 // Emotion record validation schemas
 export const saveEmotionSchema = z.object({
   childId: z.string().min(1, "Child ID is required"),
-  emotion: z.enum(["happy", "sad", "angry", "surprised", "fearful", "disgusted", "neutral"]),
+  emotion: z.enum([
+    "happy",
+    "sad",
+    "angry",
+    "surprised",
+    "fearful",
+    "disgusted",
+    "neutral",
+  ]),
   intensity: z.number().min(0).max(100),
   context: z.string().optional(),
   gameSessionId: z.string().optional(),
@@ -60,4 +100,3 @@ export type CreateChildInput = z.infer<typeof createChildSchema>;
 export type UpdateChildInput = z.infer<typeof updateChildSchema>;
 export type SaveGameSessionInput = z.infer<typeof saveGameSessionSchema>;
 export type SaveEmotionInput = z.infer<typeof saveEmotionSchema>;
-
